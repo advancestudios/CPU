@@ -10,7 +10,7 @@ const client = new Client({
 
 // CONFIGURACIÓN (Rellena estos datos)
 const ID_CANAL_ALERTAS = '1518652067483353228'; 
-const TOKEN = 'MTUxOTAyMzUxMDk4MTE4NTc5Ng.Ge_wbU.ZmIgkHTpofOUHM4WY-wLAxpgmooKqzimGP-jCc';
+const TOKEN = 'MTUxOTAyMzUxMDk4MTE4NTc5Ng.GQPtuN.HN8lri33F-R6WddgpFKQ2aiVVC__17R3GaqMEY';
 const CLIENT_ID = '1519023510981185796'; // Lo encuentras en el Developer Portal (Application ID)
 
 // 1. Registro de Comandos de Barra (Slash Commands)
@@ -120,4 +120,4 @@ client.on('guildMemberRemove', async (member) => {
     }
 });
 
-client.login('MTUxOTAyMzUxMDk4MTE4NTc5Ng.Ge_wbU.ZmIgkHTpofOUHM4WY-wLAxpgmooKqzimGP-jCc');
+client.login('MTUxOTAyMzUxMDk4MTE4NTc5Ng.GQPtuN.HN8lri33F-R6WddgpFKQ2aiVVC__17R3GaqMEY');
