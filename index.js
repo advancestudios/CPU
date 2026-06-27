@@ -120,4 +120,4 @@ client.on('guildMemberRemove', async (member) => {
     }
 });
 
-client.login(process.env.DISCORD_TOKEN);
+client.login('MTUxOTAyMzUxMDk4MTE4NTc5Ng.Ge_wbU.ZmIgkHTpofOUHM4WY-wLAxpgmooKqzimGP-jCc');
