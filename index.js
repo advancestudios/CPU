@@ -61,30 +61,30 @@ client.on('interactionCreate', async interaction => {
     const razon = options.getString('razon') || 'No se especificó razón';
 
     if (!usuario) {
-        return interaction.reply({ content: 'No se encontró a ese usuario en el servidor.', ephemeral: true });
+        return interaction.reply({ content: 'No se encontró a ese usuario en el servidor.', ephemeral: false });
     }
 
     // COMANDO KICK
     if (commandName === 'kick') {
-        if (!usuario.kickable) return interaction.reply({ content: 'No puedo expulsar a este usuario (puede tener un rol más alto que el mío).', ephemeral: true });
+        if (!usuario.kickable) return interaction.reply({ content: 'No puedo expulsar a este usuario (puede tener un rol más alto que el mío).', ephemeral: false });
         await usuario.kick(razon);
-        return interaction.reply({ content: `👢 **${usuario.user.tag}** ha sido expulsado.`, ephemeral: true });
+        return interaction.reply({ content: `👢 **${usuario.user.tag}** ha sido expulsado.`, ephemeral: false });
     }
 
     // COMANDO BAN
     if (commandName === 'ban') {
-        if (!usuario.bannable) return interaction.reply({ content: 'No puedo banear a este usuario.', ephemeral: true });
+        if (!usuario.bannable) return interaction.reply({ content: 'No puedo banear a este usuario.', ephemeral: false });
         await guild.members.ban(usuario.id, { reason: razon });
-        return interaction.reply({ content: `🚨 **${usuario.user.tag}** ha sido baneado.`, ephemeral: true });
+        return interaction.reply({ content: `🚨 **${usuario.user.tag}** ha sido baneado.`, ephemeral: false });
     }
 
     // COMANDO TIMEOUT (AISLAMIENTO)
     if (commandName === 'timeout') {
         const minutos = options.getInteger('minutos');
-        if (!usuario.moderatable) return interaction.reply({ content: 'No puedo aislar a este usuario.', ephemeral: true });
+        if (!usuario.moderatable) return interaction.reply({ content: 'No puedo aislar a este usuario.', ephemeral: false });
         
         await usuario.timeout(minutos * 60 * 1000, razon);
-        return interaction.reply({ content: `⏳ **${usuario.user.tag}** ha sido aislado por ${minutos} minutos.`, ephemeral: true });
+        return interaction.reply({ content: `⏳ **${usuario.user.tag}** ha sido aislado por ${minutos} minutos.`, ephemeral: false });
     }
 });
 
