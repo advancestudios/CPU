@@ -95,7 +95,7 @@ client.on('guildBanAdd', async (ban) => {
     const fetchedLogs = await ban.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.MemberBanAdd });
     const banLog = fetchedLogs.entries.first();
     const responsable = banLog ? banLog.executor.tag : 'Desconocido';
-    const embed = new EmbedBuilder().setTitle('🚨 Usuario Baneado').setColor(0xFF0000).setDescription(`**Usuario:** ${ban.user.tag}\n**Responsable:** ${responsable}\n**Razón:** ${ban.reason || 'No especificada'}`).setTimestamp();
+    const embed = new EmbedBuilder().setTitle('🚨 Usuario Baneado').setColor(0x2759b0).setDescription(`**Usuario:** ${ban.user.tag}\n**Responsable:** ${responsable}\n**Razón:** ${ban.reason || 'No especificada'}`).setTimestamp();
     canal.send({ embeds: [embed] });
 });
 
@@ -105,7 +105,7 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
     const fetchedLogs = await newMember.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.MemberUpdate });
     const timeoutLog = fetchedLogs.entries.first();
     const responsable = timeoutLog ? timeoutLog.executor.tag : 'Desconocido';
-    const embed = new EmbedBuilder().setTitle('⏳ Usuario Aislado (Timeout)').setColor(0xFFA500).setDescription(`**Usuario:** ${newMember.user.tag}\n**Responsable:** ${responsable}\n**Hasta:** ${newMember.communicationDisabledUntil.toLocaleString()}`).setTimestamp();
+    const embed = new EmbedBuilder().setTitle('⏳ Usuario Aislado (Timeout)').setColor(0x2759b0).setDescription(`**Usuario:** ${newMember.user.tag}\n**Responsable:** ${responsable}\n**Hasta:** ${newMember.communicationDisabledUntil.toLocaleString()}`).setTimestamp();
     canal.send({ embeds: [embed] });
 });
 
@@ -115,7 +115,7 @@ client.on('guildMemberRemove', async (member) => {
     const fetchedLogs = await member.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.MemberKick });
     const kickLog = fetchedLogs.entries.first();
     if (kickLog && kickLog.target.id === member.id && Date.now() - kickLog.createdAt < 10000) {
-        const embed = new EmbedBuilder().setTitle('👢 Usuario Expulsado (Kick)').setColor(0xFF8000).setDescription(`**Usuario:** ${member.user.tag}\n**Responsable:** ${kickLog.executor.tag}\n**Razón:** ${kickLog.reason || 'No especificada'}`).setTimestamp();
+        const embed = new EmbedBuilder().setTitle('👢 Usuario Expulsado (Kick)').setColor(0x2759b0).setDescription(`**Usuario:** ${member.user.tag}\n**Responsable:** ${kickLog.executor.tag}\n**Razón:** ${kickLog.reason || 'No especificada'}`).setTimestamp();
         canal.send({ embeds: [embed] });
     }
 });
