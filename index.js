@@ -33,7 +33,19 @@ const commands = [
         .setName('timeout')
         .setDescription('Aisla temporalmente a un miembro')
         .addUserOption(option => option.setName('usuario').setDescription('El usuario a aislar').setRequired(true))
-        .addIntegerOption(option => option.setName('minutos').setDescription('Tiempo en minutos').setRequired(true))
+        .addIntegerOption(option => 
+            option.setName('minutos')
+                .setDescription('Selecciona el tiempo de aislamiento')
+                .setRequired(true)
+                .addChoices(
+                    { name: '60 segundos', value: 1 },
+                    { name: '5 minutos', value: 5 },
+                    { name: '10 minutos', value: 10 },
+                    { name: '1 hora', value: 60 },
+                    { name: '1 día', value: 1440 },
+                    { name: '1 semana', value: 10080 }
+                )
+        )
         .addStringOption(option => option.setName('razon').setDescription('Razón del aislamiento'))
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 ].map(command => command.toJSON());
@@ -86,6 +98,8 @@ client.on('interactionCreate', async interaction => {
         await usuario.timeout(minutos * 60 * 1000, razon);
         return interaction.reply({ content: `⏳ **${usuario.user.tag}** ha sido aislado por ${minutos} minutos.`, ephemeral: false });
     }
+
+    // 
 });
 
 // 3. Eventos automáticos de Auditoría (Los que ya tenías)
