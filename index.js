@@ -10,7 +10,7 @@ const client = new Client({
 });
 
 // CONFIGURACIÓN (Mantén tus credenciales)
-const TOKEN = 'MTUxOTAyMzUxMDk4MTE4NTc5Ng.GQPtuN.HN8lri33F-R6WddgpFKQ2aiVVC__17R3GaqMEY';
+const TOKEN = 'MTUxOTAyMzUxMDk4MTE4NTc5Ng.GMl5Qk.5UH5rPOusVjYQgRJ6zK8MMAfU6ZPgDSXJcHB1c';
 const CLIENT_ID = '1519023510981185796'; 
 const ARCHIVO_WARNS = path.join(__dirname, 'warns.json');
 
@@ -138,4 +138,4 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-client.login('MTUxOTAyMzUxMDk4MTE4NTc5Ng.GQPtuN.HN8lri33F-R6WddgpFKQ2aiVVC__17R3GaqMEY');
+client.login('MTUxOTAyMzUxMDk4MTE4NTc5Ng.GMl5Qk.5UH5rPOusVjYQgRJ6zK8MMAfU6ZPgDSXJcHB1c');
