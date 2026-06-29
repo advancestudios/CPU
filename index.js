@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder, REST, Routes, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 
@@ -9,17 +9,17 @@ const client = new Client({
     ]
 });
 
-// CONFIGURACIÓN (Mantén tus credenciales)
+// CONFIGURACIÓN ACTUALIZADA
 const TOKEN = 'MTUxOTAyMzUxMDk4MTE4NTc5Ng.GMl5Qk.5UH5rPOusVjYQgRJ6zK8MMAfU6ZPgDSXJcHB1c';
 const CLIENT_ID = '1519023510981185796'; 
 const ARCHIVO_WARNS = path.join(__dirname, 'warns.json');
 
-// Crear el archivo de base de datos local para los warns si no existe
+// Crear el archivo de almacenamiento local si no existe
 if (!fs.existsSync(ARCHIVO_WARNS)) {
     fs.writeFileSync(ARCHIVO_WARNS, JSON.stringify({}), 'utf8');
 }
 
-// 1. Registro de Comandos de Barra (Slash Commands)
+// 1. Registro de Todos los Comandos de Barra (Incluyendo /warn)
 const commands = [
     new SlashCommandBuilder()
         .setName('kick')
@@ -68,9 +68,10 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 client.once('ready', async () => {
     console.log(`🚀 Bot de comandos activo como ${client.user.tag}`);
     try {
-        console.log('Cargando los comandos de moderación en Discord...');
+        console.log('Forzando actualización de comandos en Discord...');
+        // Esto le avisa a Discord globalmente que el comando /warn ahora existe
         await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-        console.log('¡Comandos cargados con éxito!');
+        console.log('¡Todos los comandos cargados y actualizados con éxito!');
     } catch (error) {
         console.error('Error al cargar comandos:', error);
     }
@@ -90,33 +91,38 @@ client.on('interactionCreate', async interaction => {
 
     // COMANDO KICK
     if (commandName === 'kick') {
-        if (!usuario.kickable) return interaction.reply({ content: 'No puedo expulsar a este usuario (jerarquía de roles).', ephemeral: false });
+        if (!usuario.kickable) return interaction.reply({ content: 'No se pudo expulsar a este usuario (jerarquía de roles).', ephemeral: false });
         await usuario.kick(razon);
-        return interaction.reply({ content: `绿色 **${usuario.user.tag}** ha sido expulsado correctamente.`, ephemeral: false });
+        return interaction.reply({ content: `👢 **${usuario.user.tag}** ha sido expulsado.`, ephemeral: false });
     }
 
     // COMANDO BAN
     if (commandName === 'ban') {
-        if (!usuario.bannable) return interaction.reply({ content: 'No puedo banear a este usuario.', ephemeral: false });
+        if (!usuario.bannable) return interaction.reply({ content: 'No se pudo banear a este usuario.', ephemeral: false });
         await guild.members.ban(usuario.id, { reason: razon });
-        return interaction.reply({ content: `🚨 **${usuario.user.tag}** ha sido baneado correctamente.`, ephemeral: false });
+        return interaction.reply({ content: `🚨 **${usuario.user.tag}** ha sido baneado.`, ephemeral: false });
     }
 
     // COMANDO TIMEOUT
     if (commandName === 'timeout') {
         const minutos = options.getInteger('minutos');
-        if (!usuario.moderatable) return interaction.reply({ content: 'No puedo aislar a este usuario.', ephemeral: false });
+        if (!usuario.moderatable) return interaction.reply({ content: 'No se pudo aislar a este usuario.', ephemeral: false });
         
         await usuario.timeout(minutos * 60 * 1000, razon);
-        return interaction.reply({ content: `⏳ **${usuario.user.tag}** ha sido aislado por ${minutos} minutos correctamente.`, ephemeral: false });
+        return interaction.reply({ content: `⏳ **${usuario.user.tag}** ha sido aislado por ${minutos}.`, ephemeral: false });
     }
 
     // COMANDO WARN
     if (commandName === 'warn') {
         if (usuario.user.bot) return interaction.reply({ content: 'No puedes advertir a un bot.', ephemeral: false });
 
-        const datosRaw = fs.readFileSync(ARCHIVO_WARNS, 'utf8');
-        const listaWarns = JSON.parse(datosRaw);
+        let listaWarns = {};
+        try {
+            const datosRaw = fs.readFileSync(ARCHIVO_WARNS, 'utf8');
+            listaWarns = JSON.parse(datosRaw);
+        } catch (e) {
+            listaWarns = {};
+        }
 
         if (!listaWarns[usuario.id]) {
             listaWarns[usuario.id] = [];
@@ -138,4 +144,4 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-client.login('MTUxOTAyMzUxMDk4MTE4NTc5Ng.GMl5Qk.5UH5rPOusVjYQgRJ6zK8MMAfU6ZPgDSXJcHB1c');
+client.login(TOKEN);
