@@ -1,17 +1,23 @@
-const { Client, GatewayIntentBits, AuditLogEvent, EmbedBuilder, REST, Routes, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, REST, Routes, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
 
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildModeration, 
         GatewayIntentBits.GuildMembers
     ]
 });
 
-// CONFIGURACIÓN (Rellena estos datos)
-const ID_CANAL_ALERTAS = '1518652067483353228'; 
+// CONFIGURACIÓN (Mantén tus credenciales)
 const TOKEN = 'MTUxOTAyMzUxMDk4MTE4NTc5Ng.GQPtuN.HN8lri33F-R6WddgpFKQ2aiVVC__17R3GaqMEY';
-const CLIENT_ID = '1519023510981185796'; // Lo encuentras en el Developer Portal (Application ID)
+const CLIENT_ID = '1519023510981185796'; 
+const ARCHIVO_WARNS = path.join(__dirname, 'warns.json');
+
+// Crear el archivo de base de datos local para los warns si no existe
+if (!fs.existsSync(ARCHIVO_WARNS)) {
+    fs.writeFileSync(ARCHIVO_WARNS, JSON.stringify({}), 'utf8');
+}
 
 // 1. Registro de Comandos de Barra (Slash Commands)
 const commands = [
@@ -48,27 +54,33 @@ const commands = [
         )
         .addStringOption(option => option.setName('razon').setDescription('Razón del aislamiento'))
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+
+    new SlashCommandBuilder()
+        .setName('warn')
+        .setDescription('Aplica una advertencia a un miembro')
+        .addUserOption(option => option.setName('usuario').setDescription('El usuario a advertir').setRequired(true))
+        .addStringOption(option => option.setName('razon').setDescription('Razón de la advertencia'))
+        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
 client.once('ready', async () => {
-    console.log(`🚀 ¡El bot ya está despierto como ${client.user.tag}!`);
-    
+    console.log(`🚀 Bot de comandos activo como ${client.user.tag}`);
     try {
-        console.log('Cargando los comandos / en Discord...');
+        console.log('Cargando los comandos de moderación en Discord...');
         await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-        console.log('¡Comandos / cargados con éxito!');
+        console.log('¡Comandos cargados con éxito!');
     } catch (error) {
         console.error('Error al cargar comandos:', error);
     }
 });
 
-// 2. Escuchar cuando un usuario ejecuta un comando
+// 2. Ejecución de los Comandos
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
-    const { commandName, options, guild } = interaction;
+    const { commandName, options, guild, user } = interaction;
     const usuario = options.getMember('usuario');
     const razon = options.getString('razon') || 'No se especificó razón';
 
@@ -78,60 +90,52 @@ client.on('interactionCreate', async interaction => {
 
     // COMANDO KICK
     if (commandName === 'kick') {
-        if (!usuario.kickable) return interaction.reply({ content: 'No puedo expulsar a este usuario (puede tener un rol más alto que el mío).', ephemeral: false });
+        if (!usuario.kickable) return interaction.reply({ content: 'No puedo expulsar a este usuario (jerarquía de roles).', ephemeral: false });
         await usuario.kick(razon);
-        return interaction.reply({ content: `👢 **${usuario.user.tag}** ha sido expulsado.`, ephemeral: false });
+        return interaction.reply({ content: `绿色 **${usuario.user.tag}** ha sido expulsado correctamente.`, ephemeral: false });
     }
 
     // COMANDO BAN
     if (commandName === 'ban') {
         if (!usuario.bannable) return interaction.reply({ content: 'No puedo banear a este usuario.', ephemeral: false });
         await guild.members.ban(usuario.id, { reason: razon });
-        return interaction.reply({ content: `🚨 **${usuario.user.tag}** ha sido baneado.`, ephemeral: false });
+        return interaction.reply({ content: `🚨 **${usuario.user.tag}** ha sido baneado correctamente.`, ephemeral: false });
     }
 
-    // COMANDO TIMEOUT (AISLAMIENTO)
+    // COMANDO TIMEOUT
     if (commandName === 'timeout') {
         const minutos = options.getInteger('minutos');
         if (!usuario.moderatable) return interaction.reply({ content: 'No puedo aislar a este usuario.', ephemeral: false });
         
         await usuario.timeout(minutos * 60 * 1000, razon);
-        return interaction.reply({ content: `⏳ **${usuario.user.tag}** ha sido aislado por ${minutos} minutos.`, ephemeral: false });
+        return interaction.reply({ content: `⏳ **${usuario.user.tag}** ha sido aislado por ${minutos} minutos correctamente.`, ephemeral: false });
     }
 
-    // 
-});
+    // COMANDO WARN
+    if (commandName === 'warn') {
+        if (usuario.user.bot) return interaction.reply({ content: 'No puedes advertir a un bot.', ephemeral: false });
 
-// 3. Eventos automáticos de Auditoría (Los que ya tenías)
-client.on('guildBanAdd', async (ban) => {
-    const canal = ban.guild.channels.cache.get(ID_CANAL_ALERTAS);
-    if (!canal) return;
-    const fetchedLogs = await ban.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.MemberBanAdd });
-    const banLog = fetchedLogs.entries.first();
-    const responsable = banLog ? banLog.executor.tag : 'Desconocido';
-    const embed = new EmbedBuilder().setTitle('🚨 Usuario Baneado').setColor(0x2759b0).setDescription(`**Usuario:** ${ban.user.tag}\n**Responsable:** ${responsable}\n**Razón:** ${ban.reason || 'No especificada'}`).setTimestamp();
-    canal.send({ embeds: [embed] });
-});
+        const datosRaw = fs.readFileSync(ARCHIVO_WARNS, 'utf8');
+        const listaWarns = JSON.parse(datosRaw);
 
-client.on('guildMemberUpdate', async (oldMember, newMember) => {
-    const canal = newMember.guild.channels.cache.get(ID_CANAL_ALERTAS);
-    if (!canal || !(!oldMember.communicationDisabledUntil && newMember.communicationDisabledUntil)) return;
-    const fetchedLogs = await newMember.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.MemberUpdate });
-    const timeoutLog = fetchedLogs.entries.first();
-    const responsable = timeoutLog ? timeoutLog.executor.tag : 'Desconocido';
-    const embed = new EmbedBuilder().setTitle('⏳ Usuario Aislado (Timeout)').setColor(0x2759b0).setDescription(`**Usuario:** ${newMember.user.tag}\n**Responsable:** ${responsable}\n**Hasta:** ${newMember.communicationDisabledUntil.toLocaleString()}`).setTimestamp();
-    canal.send({ embeds: [embed] });
-});
+        if (!listaWarns[usuario.id]) {
+            listaWarns[usuario.id] = [];
+        }
 
-client.on('guildMemberRemove', async (member) => {
-    const canal = member.guild.channels.cache.get(ID_CANAL_ALERTAS);
-    if (!canal) return;
-    const fetchedLogs = await member.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.MemberKick });
-    const kickLog = fetchedLogs.entries.first();
-    if (kickLog && kickLog.target.id === member.id && Date.now() - kickLog.createdAt < 10000) {
-        const embed = new EmbedBuilder().setTitle('👢 Usuario Expulsado (Kick)').setColor(0x2759b0).setDescription(`**Usuario:** ${member.user.tag}\n**Responsable:** ${kickLog.executor.tag}\n**Razón:** ${kickLog.reason || 'No especificada'}`).setTimestamp();
-        canal.send({ embeds: [embed] });
+        listaWarns[usuario.id].push({
+            moderador: user.tag,
+            razon: razon,
+            fecha: new Date().toLocaleDateString()
+        });
+
+        fs.writeFileSync(ARCHIVO_WARNS, JSON.stringify(listaWarns, null, 2), 'utf8');
+        const totalWarns = listaWarns[usuario.id].length;
+
+        return interaction.reply({ 
+            content: `⚠️ **${usuario.user.tag}** ha sido advertido. (Total de advertencias: **${totalWarns}**)`, 
+            ephemeral: false 
+        });
     }
 });
 
-client.login('MTUxOTAyMzUxMDk4MTE4NTc5Ng.GQPtuN.HN8lri33F-R6WddgpFKQ2aiVVC__17R3GaqMEY');
+client.login(TOKEN);
