@@ -9,7 +9,7 @@ const client = new Client({
     ]
 });
 
-// CONFIGURACIÓN ACTUALIZADA
+// CONFIGURACIÓN (Mantenemos tu mismo token)
 const TOKEN = 'MTUxOTAyMzUxMDk4MTE4NTc5Ng.GMl5Qk.5UH5rPOusVjYQgRJ6zK8MMAfU6ZPgDSXJcHB1c';
 const CLIENT_ID = '1519023510981185796'; 
 const ARCHIVO_WARNS = path.join(__dirname, 'warns.json');
@@ -19,7 +19,7 @@ if (!fs.existsSync(ARCHIVO_WARNS)) {
     fs.writeFileSync(ARCHIVO_WARNS, JSON.stringify({}), 'utf8');
 }
 
-// 1. Registro de Todos los Comandos de Barra (Incluyendo /warn)
+// 1. Registro de Todos los Comandos de Barra
 const commands = [
     new SlashCommandBuilder()
         .setName('kick')
@@ -61,6 +61,23 @@ const commands = [
         .addUserOption(option => option.setName('usuario').setDescription('El usuario a advertir').setRequired(true))
         .addStringOption(option => option.setName('razon').setDescription('Razón de la advertencia'))
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+
+    // NUEVO: Comando dar-rol
+    new SlashCommandBuilder()
+        .setName('role add')
+        .setDescription('Asignar un rol a un usuario')
+        .addUserOption(option => option.setName('usuario').setDescription('El usuario que recibirá el rol').setRequired(true))
+        .addRoleOption(option => option.setName('rol').setDescription('El rol que vas a asignar').setRequired(true))
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles),
+
+    // NUEVO: Comando quitar-rol
+    new SlashCommandBuilder()
+        .setName('role remove')
+        .setDescription('Quitar un rol a un usuario')
+        .addUserOption(option => option.setName('usuario').setDescription('El usuario al que le quitarás el rol').setRequired(true))
+        .addRoleOption(option => option.setName('rol').setDescription('El rol que vas a quitar').setRequired(true))
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles),
+
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -69,7 +86,6 @@ client.once('ready', async () => {
     console.log(`🚀 Bot de comandos activo como ${client.user.tag}`);
     try {
         console.log('Forzando actualización de comandos en Discord...');
-        // Esto le avisa a Discord globalmente que el comando /warn ahora existe
         await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
         console.log('¡Todos los comandos cargados y actualizados con éxito!');
     } catch (error) {
@@ -85,8 +101,9 @@ client.on('interactionCreate', async interaction => {
     const usuario = options.getMember('usuario');
     const razon = options.getString('razon') || 'No se especificó razón';
 
-    if (!usuario) {
-        return interaction.reply({ content: 'No se encontró a ese usuario en el servidor.', ephemeral: false });
+    // Validación general para comandos que requieren un usuario objetivo
+    if (!usuario && ['kick', 'ban', 'timeout', 'warn', 'dar-rol', 'quitar-rol'].includes(commandName)) {
+        return interaction.reply({ content: 'No se encontró a ese usuario en el servidor.', ephemeral: true });
     }
 
     // COMANDO KICK
@@ -105,11 +122,11 @@ client.on('interactionCreate', async interaction => {
 
     // COMANDO TIMEOUT
     if (commandName === 'timeout') {
-        const minutos = options.getInteger('minutos');
+        const minutes = options.getInteger('minutos');
         if (!usuario.moderatable) return interaction.reply({ content: 'No se pudo aislar a este usuario.', ephemeral: false });
         
-        await usuario.timeout(minutos * 60 * 1000, razon);
-        return interaction.reply({ content: `⏳ **${usuario.user.tag}** ha sido aislado por ${minutos}.`, ephemeral: false });
+        await usuario.timeout(minutes * 60 * 1000, razon);
+        return interaction.reply({ content: `⏳ **${usuario.user.tag}** ha sido aislado por ${minutes} minutos.`, ephemeral: false });
     }
 
     // COMANDO WARN
@@ -141,6 +158,48 @@ client.on('interactionCreate', async interaction => {
             content: `⚠️ **${usuario.user.tag}** ha sido advertido. (Total de advertencias: **${totalWarns}**)`, 
             ephemeral: false 
         });
+    }
+
+    // NUEVO: EJECUCIÓN DE DAR-ROL
+    if (commandName === 'role add') {
+        const rol = options.getRole('rol');
+
+        if (rol.position >= guild.members.me.roles.highest.position) {
+            return interaction.reply({ content: 'No puedo asignar ese rol porque está en una posición igual o superior a mi rol más alto.', ephemeral: true });
+        }
+
+        if (usuario.roles.cache.has(rol.id)) {
+            return interaction.reply({ content: `El usuario ya tiene el rol **${rol.name}**.`, ephemeral: true });
+        }
+
+        try {
+            await usuario.roles.add(rol);
+            return interaction.reply({ content: `✅ Se ha asignado el rol **${rol.name}** a **${usuario.user.tag}**.` });
+        } catch (error) {
+            console.error(error);
+            return interaction.reply({ content: 'Hubo un error al intentar añadir el rol. Revisa mis permisos.', ephemeral: true });
+        }
+    }
+
+    // NUEVO: EJECUCIÓN DE QUITAR-ROL
+    if (commandName === 'role remove') {
+        const rol = options.getRole('rol');
+
+        if (rol.position >= guild.members.me.roles.highest.position) {
+            return interaction.reply({ content: 'No puedo quitar ese rol porque está en una posición igual o superior a mi rol más alto.', ephemeral: true });
+        }
+
+        if (!usuario.roles.cache.has(rol.id)) {
+            return interaction.reply({ content: `El usuario no tiene el rol **${rol.name}**.`, ephemeral: true });
+        }
+
+        try {
+            await usuario.roles.remove(rol);
+            return interaction.reply({ content: `❌ Se ha quitado el rol **${rol.name}** a **${usuario.user.tag}**.` });
+        } catch (error) {
+            console.error(error);
+            return interaction.reply({ content: 'Hubo un error al intentar quitar el rol. Revisa mis permisos.', ephemeral: true });
+        }
     }
 });
 
