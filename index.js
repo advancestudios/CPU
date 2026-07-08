@@ -36,6 +36,13 @@ const commands = [
         .addStringOption(option => option.setName('razon').setDescription('Razón del baneo'))
         .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
 
+    // NUEVO: Comando /unban
+    new SlashCommandBuilder()
+        .setName('unban')
+        .setDescription('Desbanea a un usuario del servidor usando su ID')
+        .addStringOption(option => option.setName('id').setDescription('La ID de Discord del usuario a desbanear').setRequired(true))
+        .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
+
     new SlashCommandBuilder()
         .setName('timeout')
         .setDescription('Aisla temporalmente a un miembro')
@@ -56,12 +63,25 @@ const commands = [
         .addStringOption(option => option.setName('razon').setDescription('Razón del aislamiento'))
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
+    // NUEVO: Comando /untimeout
+    new SlashCommandBuilder()
+        .setName('untimeout')
+        .setDescription('Quita el aislamiento temporal a un miembro')
+        .addUserOption(option => option.setName('usuario').setDescription('El usuario al que se le quitará el aislamiento').setRequired(true))
+        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+
     new SlashCommandBuilder()
         .setName('warn')
         .setDescription('Aplica una advertencia a un miembro')
         .addUserOption(option => option.setName('usuario').setDescription('El usuario a advertir').setRequired(true))
         .addStringOption(option => option.setName('razon').setDescription('Razón de la advertencia'))
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+
+    // NUEVO: Comando /warns
+    new SlashCommandBuilder()
+        .setName('warns')
+        .setDescription('Muestra el historial de advertencias de un usuario')
+        .addUserOption(option => option.setName('usuario').setDescription('El usuario a consultar').setRequired(true)),
 
     new SlashCommandBuilder()
         .setName('dar-rol')
@@ -77,7 +97,6 @@ const commands = [
         .addRoleOption(option => option.setName('rol').setDescription('El rol que vas a quitar').setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles),
 
-    // NUEVO: Comando /clear para limpiar mensajes
     new SlashCommandBuilder()
         .setName('clear')
         .setDescription('Borra una cantidad específica de mensajes del chat')
@@ -90,14 +109,12 @@ const commands = [
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
-    // NUEVO: Comando /nick para cambiarse el nombre a uno mismo
     new SlashCommandBuilder()
         .setName('nick')
         .setDescription('Cambia tu propio apodo en el servidor')
         .addStringOption(option => option.setName('apodo').setDescription('Tu nuevo apodo (deja vacío para restablecer)').setRequired(false))
         .setDefaultMemberPermissions(PermissionFlagsBits.ChangeNickname),
 
-    // NUEVO: Comando /set-nick para cambiar el nombre a otros
     new SlashCommandBuilder()
         .setName('set-nick')
         .setDescription('Cambia el apodo de otro miembro del servidor')
@@ -114,7 +131,7 @@ client.once('ready', async () => {
     try {
         console.log('Forzando actualización de comandos en Discord...');
         await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-        console.log('¡Todos los comandos cargados y actualizados con éxito!');
+        console.log('¡Todos los comandos cargados y updated con éxito!');
     } catch (error) {
         console.error('Error al cargar comandos:', error);
     }
@@ -128,8 +145,8 @@ client.on('interactionCreate', async interaction => {
     const usuario = options.getMember('usuario');
     const razon = options.getString('razon') || 'No se especificó razón';
 
-    // Validación para comandos que requieren obligatoriamente un usuario objetivo externo
-    if (!usuario && ['kick', 'ban', 'timeout', 'warn', 'dar-rol', 'quitar-rol', 'set-nick'].includes(commandName)) {
+    // Validación general para comandos que requieren obligatoriamente un usuario en el servidor
+    if (!usuario && ['kick', 'ban', 'timeout', 'untimeout', 'warn', 'warns', 'dar-rol', 'quitar-rol', 'set-nick'].includes(commandName)) {
         return interaction.reply({ content: 'No se encontró a ese usuario en el servidor.', ephemeral: true });
     }
 
@@ -147,6 +164,19 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ content: `🚨 **${usuario.user.tag}** ha sido baneado.`, ephemeral: false });
     }
 
+    // NUEVO: EJECUCIÓN DE UNBAN
+    if (commandName === 'unban') {
+        const userId = options.getString('id');
+
+        try {
+            await guild.members.unban(userId);
+            return interaction.reply({ content: `✅ El usuario con ID **${userId}** ha sido desbaneado.` });
+        } catch (error) {
+            console.error(error);
+            return interaction.reply({ content: 'No se pudo desbanear a ese usuario. Verifica que la ID sea correcta o que realmente esté baneado.', ephemeral: true });
+        }
+    }
+
     // COMANDO TIMEOUT
     if (commandName === 'timeout') {
         const minutes = options.getInteger('minutos');
@@ -154,6 +184,20 @@ client.on('interactionCreate', async interaction => {
         
         await usuario.timeout(minutes * 60 * 1000, razon);
         return interaction.reply({ content: `⏳ **${usuario.user.tag}** ha sido aislado por ${minutes} minutos.`, ephemeral: false });
+    }
+
+    // NUEVO: EJECUCIÓN DE UNTIMEOUT
+    if (commandName === 'untimeout') {
+        if (!usuario.moderatable) return interaction.reply({ content: 'No puedo quitarle el aislamiento a este usuario.', ephemeral: true });
+        if (!usuario.communicationDisabledUntilTimestamp) return interaction.reply({ content: 'Este usuario no está aislado.', ephemeral: true });
+
+        try {
+            await usuario.timeout(null);
+            return interaction.reply({ content: `🔊 Se le ha retirado el aislamiento a **${usuario.user.tag}**.` });
+        } catch (error) {
+            console.error(error);
+            return interaction.reply({ content: 'Hubo un error al intentar quitar el aislamiento.', ephemeral: true });
+        }
     }
 
     // COMANDO WARN
@@ -185,6 +229,30 @@ client.on('interactionCreate', async interaction => {
             content: `⚠️ **${usuario.user.tag}** ha sido advertido. (Total de advertencias: **${totalWarns}**)`, 
             ephemeral: false 
         });
+    }
+
+    // NUEVO: EJECUCIÓN DE WARNS (Ver historial)
+    if (commandName === 'warns') {
+        let listaWarns = {};
+        try {
+            const datosRaw = fs.readFileSync(ARCHIVO_WARNS, 'utf8');
+            listaWarns = JSON.parse(datosRaw);
+        } catch (e) {
+            listaWarns = {};
+        }
+
+        const usuarioWarns = listaWarns[usuario.id] || [];
+
+        if (usuarioWarns.length === 0) {
+            return interaction.reply({ content: `✅ **${usuario.user.tag}** no tiene ninguna advertencia registrada.` });
+        }
+
+        let respuesta = `📋 **Historial de advertencias de ${usuario.user.tag}:** (Total: ${usuarioWarns.length})\n`;
+        usuarioWarns.forEach((w, index) => {
+            respuesta += `\n**${index + 1}.** Mod: \`${w.moderador}\` | Razón: *${w.razon}* | Fecha: \`${w.fecha}\``;
+        });
+
+        return interaction.reply({ content: respuesta });
     }
 
     // COMANDO DAR-ROL
@@ -223,29 +291,25 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // NUEVO: EJECUCIÓN DE CLEAR
+    // COMANDO CLEAR
     if (commandName === 'clear') {
         const cantidad = options.getInteger('cantidad');
-
         try {
             const borrados = await channel.bulkDelete(cantidad, true);
             return interaction.reply({ content: `🧹 Se han eliminado **${borrados.size}** mensajes correctamente.`, ephemeral: true });
         } catch (error) {
             console.error(error);
-            return interaction.reply({ content: 'Hubo un error al intentar borrar los mensajes. (Nota: Discord no permite borrar mensajes con más de 14 días de antigüedad).', ephemeral: true });
+            return interaction.reply({ content: 'Hubo un error al intentar borrar los mensajes.', ephemeral: true });
         }
     }
 
-    // NUEVO: EJECUCIÓN DE NICK (Para uno mismo)
+    // COMANDO NICK
     if (commandName === 'nick') {
         const nuevoApodo = options.getString('apodo') || null;
         const miMiembro = guild.members.cache.get(user.id);
-
-        // Validar si es el dueño del servidor (Discord no permite cambiarle el nombre al Owner vía Bot)
         if (guild.ownerId === user.id) {
             return interaction.reply({ content: 'Eres el dueño del servidor. Discord no permite que un bot cambie el apodo del propietario.', ephemeral: true });
         }
-
         try {
             await miMiembro.setNickname(nuevoApodo);
             return interaction.reply({ content: nuevoApodo ? `Ajustado tu apodo a: **${nuevoApodo}**.` : 'Tu apodo ha sido restablecido al original.', ephemeral: true });
@@ -255,19 +319,15 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // NUEVO: EJECUCIÓN DE SET-NICK (Para otros usuarios)
+    // COMANDO SET-NICK
     if (commandName === 'set-nick') {
         const nuevoApodo = options.getString('apodo') || null;
-
         if (guild.ownerId === usuario.id) {
             return interaction.reply({ content: 'No puedo cambiarle el apodo al dueño del servidor.', ephemeral: true });
         }
-
-        // Validar jerarquía del bot con respecto al usuario objetivo
         if (usuario.roles.highest.position >= guild.members.me.roles.highest.position) {
             return interaction.reply({ content: 'No puedo cambiar el apodo de este usuario porque tiene un rol superior o igual al mío.', ephemeral: true });
         }
-
         try {
             await usuario.setNickname(nuevoApodo);
             return interaction.reply({ content: nuevoApodo ? `Se cambió el apodo de **${usuario.user.tag}** a **${nuevoApodo}**.` : `Se restableció el apodo de **${usuario.user.tag}**.` });
