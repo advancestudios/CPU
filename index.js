@@ -12,7 +12,7 @@ const {
     ChannelType 
 } = require('discord.js');
 const fs = require('fs');
-const path = require('path');
+const path = path = require('path');
 const express = require('express');
 
 const client = new Client({
@@ -88,9 +88,98 @@ async function ejecutarUnlock(canal, usuarioEmisor, responder) {
 }
 
 // ==========================================
-// 1. REGISTRO DE COMANDOS DE BARRA (SLASH)
+// 1. REGISTRO REDISEÑADO DE SLASH COMMANDS
 // ==========================================
 const commands = [
+    new SlashCommandBuilder()
+        .setName('kick')
+        .setDescription('Expulsa a un miembro del servidor')
+        .addUserOption(opt => opt.setName('usuario').setDescription('El miembro a expulsar').setRequired(true))
+        .addStringOption(opt => opt.setName('razon').setDescription('Motivo detallado'))
+        .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers),
+
+    new SlashCommandBuilder()
+        .setName('ban')
+        .setDescription('Banea permanentemente a un miembro')
+        .addUserOption(opt => opt.setName('usuario').setDescription('El miembro a banear').setRequired(true))
+        .addStringOption(opt => opt.setName('razon').setDescription('Motivo detallado'))
+        .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
+
+    new SlashCommandBuilder()
+        .setName('unban')
+        .setDescription('Revoca el baneo de un usuario mediante su ID')
+        .addStringOption(opt => opt.setName('id').setDescription('ID de Discord del usuario').setRequired(true))
+        .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
+
+    new SlashCommandBuilder()
+        .setName('mute')
+        .setDescription('Aísla/Silencia temporalmente a un miembro')
+        .addUserOption(opt => opt.setName('usuario').setDescription('El miembro a aislar').setRequired(true))
+        .addIntegerOption(opt => 
+            opt.setName('minutos')
+                .setDescription('Duración del aislamiento')
+                .setRequired(true)
+                .addChoices(
+                    { name: '1 Minuto', value: 1 },
+                    { name: '5 Minutos', value: 5 },
+                    { name: '10 Minutos', value: 10 },
+                    { name: '1 Hora', value: 60 },
+                    { name: '1 Día', value: 1440 },
+                    { name: '1 Semana', value: 10080 }
+                )
+        )
+        .addStringOption(opt => opt.setName('razon').setDescription('Motivo detallado'))
+        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+
+    new SlashCommandBuilder()
+        .setName('unmute')
+        .setDescription('Remueve el aislamiento/silencio de un miembro')
+        .addUserOption(opt => opt.setName('usuario').setDescription('El miembro a restablecer').setRequired(true))
+        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+
+    new SlashCommandBuilder()
+        .setName('warn')
+        .setDescription('Registra una advertencia formal')
+        .addUserOption(opt => opt.setName('usuario').setDescription('El miembro a advertir').setRequired(true))
+        .addStringOption(opt => opt.setName('razon').setDescription('Motivo'))
+        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+
+    new SlashCommandBuilder()
+        .setName('warns')
+        .setDescription('Consulta el historial de advertencias')
+        .addUserOption(opt => opt.setName('usuario').setDescription('El miembro a consultar').setRequired(true)),
+
+    // Subcomandos de Role
+    new SlashCommandBuilder()
+        .setName('role')
+        .setDescription('Gestión jerárquica de roles')
+        .addSubcommand(sub => 
+            sub.setName('add')
+               .setDescription('Asigna un rol a un miembro')
+               .addUserOption(opt => opt.setName('usuario').setDescription('Miembro receptor').setRequired(true))
+               .addRoleOption(opt => opt.setName('rol').setDescription('Rol a asignar').setRequired(true))
+        )
+        .addSubcommand(sub => 
+            sub.setName('remove')
+               .setDescription('Remueve un rol de un miembro')
+               .addUserOption(opt => opt.setName('usuario').setDescription('Miembro afectado').setRequired(true))
+               .addRoleOption(opt => opt.setName('rol').setDescription('Rol a remover').setRequired(true))
+        )
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles),
+
+    new SlashCommandBuilder()
+        .setName('clear')
+        .setDescription('Limpia mensajes masivamente')
+        .addIntegerOption(opt => opt.setName('cantidad').setDescription('Cantidad (1-100)').setRequired(true).setMinValue(1).setMaxValue(100))
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+
+    // Comando Universal de Nick
+    new SlashCommandBuilder()
+        .setName('nick')
+        .setDescription('Modifica tu apodo o el de otro miembro')
+        .addStringOption(opt => opt.setName('apodo').setDescription('Nuevo apodo (vacío para restablecer)').setRequired(false))
+        .addUserOption(opt => opt.setName('usuario').setDescription('Miembro a modificar (Solo Administradores)').setRequired(false)),
+
     new SlashCommandBuilder()
         .setName('lock')
         .setDescription('Bloquea el canal actual')
@@ -118,7 +207,7 @@ client.once('ready', async () => {
     console.log(`🚀 [CPU v1.0] Núcleo activo como ${client.user.tag}`);
     try {
         await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-        console.log('✅ [CPU v1.0] Comandos sincronizados de forma global.');
+        console.log('✅ [CPU v1.0] Comandos rediseñados y sincronizados globales.');
     } catch (err) {
         console.error('❌ Error al sincronizar comandos:', err);
     }
@@ -133,24 +222,17 @@ client.on('messageCreate', async message => {
     const args = message.content.slice(PREFIX.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
 
-    // Helper para responder por texto tradicional
     const responder = (opciones) => message.channel.send(opciones);
 
     if (command === 'lock') {
-        if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
-            return message.reply('❌ Permisos insuficientes.');
-        }
+        if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply('❌ Permisos insuficientes.');
         return ejecutarLock(message.channel, message.author, responder);
     }
 
     if (command === 'unlock') {
-        if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
-            return message.reply('❌ Permisos insuficientes.');
-        }
+        if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply('❌ Permisos insuficientes.');
         return ejecutarUnlock(message.channel, message.author, responder);
     }
-
-    // AQUÍ IRÁN LOS NUEVOS COMANDOS EXCLUSIVOS POR PREFIX QUE ME PIDAS 🚀
 });
 
 // ==========================================
@@ -159,127 +241,146 @@ client.on('messageCreate', async message => {
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
-    const { commandName, guild, user, channel } = interaction;
+    const { commandName, options, guild, user, channel } = interaction;
+    const usuario = options.getMember('usuario');
+    const razon = options.getString('razon') || 'Ninguna especificada.';
 
-    // Helper para responder por interacción de barra
-    const responder = (opciones) => interaction.reply(opciones);
-
-    if (commandName === 'lock') {
-        return ejecutarLock(channel, user, responder);
-    }
-
-    if (commandName === 'unlock') {
-        return ejecutarUnlock(channel, user, responder);
-    }
-
-    if (commandName === 'set-canal-postulaciones') {
-        const canalTexto = interaction.options.getChannel('canal');
-        const config = obtenerConfig();
-        config[guild.id] = canalTexto.id;
-        guardarConfig(config);
+    // MUTE (Antes Timeout)
+    if (commandName === 'mute') {
+        const minutes = options.getInteger('minutos');
+        if (!usuario.moderatable) return interaction.reply({ content: '❌ Impresionante: El miembro posee rango superior o inmunidad.', ephemeral: true });
+        
+        await usuario.timeout(minutes * 60 * 1000, razon);
 
         const embed = new EmbedBuilder()
-            .setTitle('⚙️ Configuración del Canal de Postulaciones')
-            .setColor('#57F287')
-            .setDescription(`Se ha vinculado el canal <#${canalTexto.id}> para recibir los expedientes enviadas por **CPU v1.0**.`)
-            .setFooter({ text: 'Sistema de Reclutamiento • CPU v1.0' })
+            .setTitle('⏳ Restricción Temporal (Mute)')
+            .setColor('#FEE75C')
+            .setDescription(`Se ha silenciado temporalmente a **${usuario.user.username}**.`)
+            .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
+            .addFields(
+                { name: '👤 Miembro Afectado', value: `${usuario.user.tag}`, inline: true },
+                { name: '⏱️ Duración', value: `\`${minutes} minutos\``, inline: true },
+                { name: '🛡️ Aplicado por', value: `${user.tag}`, inline: false },
+                { name: '📝 Motivo', value: `\`\`\`${razon}\`\`\``, inline: false }
+            )
+            .setFooter({ text: 'Sistema de Seguridad • CPU v1.0' })
             .setTimestamp();
 
-        return interaction.reply({ embeds: [embed], ephemeral: true });
+        return interaction.reply({ embeds: [embed] });
     }
 
-    if (commandName === 'postularse') {
-        const config = obtenerConfig();
-        const canalId = config[guild.id];
+    // UNMUTE (Antes Untimeout)
+    if (commandName === 'unmute') {
+        if (!usuario.moderatable) return interaction.reply({ content: '❌ No poseo autoridad para modificar a este miembro.', ephemeral: true });
+        if (!usuario.communicationDisabledUntilTimestamp) return interaction.reply({ content: 'ℹ️ El miembro no está silenciado.', ephemeral: true });
 
-        if (!canalId) {
-            return interaction.reply({ 
-                content: '⚠️ El sistema de postulaciones no ha sido configurado. Usa `/set-canal-postulaciones`.', 
-                ephemeral: true 
-            });
+        await usuario.timeout(null);
+
+        const embed = new EmbedBuilder()
+            .setTitle('🔊 Remoción de Mute')
+            .setColor('#57F287')
+            .setDescription(`Se ha desilenciado a **${usuario.user.tag}**.`)
+            .addFields(
+                { name: '👤 Miembro Restablecido', value: `${usuario.user.tag}`, inline: true },
+                { name: '🛡️ Gestionado por', value: `${user.tag}`, inline: true }
+            )
+            .setFooter({ text: 'Módulo de Gestión • CPU v1.0' })
+            .setTimestamp();
+
+        return interaction.reply({ embeds: [embed] });
+    }
+
+    // ROLES (ROLE ADD / ROLE REMOVE)
+    if (commandName === 'role') {
+        const sub = options.getSubcommand();
+        const rol = options.getRole('rol');
+
+        if (rol.position >= guild.members.me.roles.highest.position) {
+            return interaction.reply({ content: '❌ El rol supera la jerarquía del bot.', ephemeral: true });
         }
 
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('iniciar_postulacion').setLabel('Aceptar').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId('cancelar_postulacion').setLabel('Rechazar').setStyle(ButtonStyle.Danger)
-        );
+        if (sub === 'add') {
+            if (usuario.roles.cache.has(rol.id)) return interaction.reply({ content: `ℹ️ El miembro ya tiene el rol **${rol.name}**.`, ephemeral: true });
+            await usuario.roles.add(rol);
 
-        const embedMD = new EmbedBuilder()
-            .setTitle(`📜 Postulación al Equipo de Staff — ${guild.name}`)
-            .setColor('#57F287')
-            .setDescription(`¡Hola, **${user.username}**!\n\nBienvenido al proceso oficial de postulación para **${guild.name}**.\n\nPresiona **Aceptar** para iniciar o **Rechazar** para cancelar.`)
-            .setThumbnail(guild.iconURL({ dynamic: true }))
-            .setFooter({ text: 'Sistema Central CPU v1.0 • Módulo de Selección' })
-            .setTimestamp();
+            const embed = new EmbedBuilder()
+                .setTitle('💼 Role Add — Permisos Otorgados')
+                .setColor('#57F287')
+                .addFields(
+                    { name: '👤 Receptor', value: `${usuario.user.tag}`, inline: true },
+                    { name: '🛡️ Rol Otorgado', value: `<@&${rol.id}>`, inline: true },
+                    { name: '✍️ Autorizado por', value: `${user.tag}`, inline: false }
+                )
+                .setFooter({ text: 'Gestión de Permisos • CPU v1.0' })
+                .setTimestamp();
+
+            return interaction.reply({ embeds: [embed] });
+        }
+
+        if (sub === 'remove') {
+            if (!usuario.roles.cache.has(rol.id)) return interaction.reply({ content: `ℹ️ El miembro no cuenta con el rol **${rol.name}**.`, ephemeral: true });
+            await usuario.roles.remove(rol);
+
+            const embed = new EmbedBuilder()
+                .setTitle('💼 Role Remove — Permisos Revocados')
+                .setColor('#ED4245')
+                .addFields(
+                    { name: '👤 Afectado', value: `${usuario.user.tag}`, inline: true },
+                    { name: '🛡️ Rol Retirado', value: `<@&${rol.id}>`, inline: true },
+                    { name: '✍️ Modificado por', value: `${user.tag}`, inline: false }
+                )
+                .setFooter({ text: 'Gestión de Permisos • CPU v1.0' })
+                .setTimestamp();
+
+            return interaction.reply({ embeds: [embed] });
+        }
+    }
+
+    // COMANDO NICK UNIVERSAL
+    if (commandName === 'nick') {
+        const nuevoApodo = options.getString('apodo') || null;
+        const miembroObjetivo = options.getMember('usuario') || interaction.member;
+
+        // Si intenta cambiar el nick de otra persona
+        if (miembroObjetivo.id !== user.id) {
+            if (!interaction.member.permissions.has(PermissionFlagsBits.ManageNicknames)) {
+                return interaction.reply({ content: '❌ Requieres el permiso de `Gestionar Apodos` para cambiar el apodo de otro miembro.', ephemeral: true });
+            }
+            if (guild.ownerId === miembroObjetivo.id) {
+                return interaction.reply({ content: '❌ Prohibido modificar credenciales del propietario del servidor.', ephemeral: true });
+            }
+            if (miembroObjetivo.roles.highest.position >= guild.members.me.roles.highest.position) {
+                return interaction.reply({ content: '❌ Jerarquía insuficiente para alterar a este miembro.', ephemeral: true });
+            }
+        } else {
+            if (guild.ownerId === user.id) {
+                return interaction.reply({ content: '❌ Discord no permite alterar el nick del dueño del servidor vía bot.', ephemeral: true });
+            }
+        }
 
         try {
-            const mensajeDM = await user.send({ embeds: [embedMD], components: [row] });
-            await interaction.reply({ content: '📬 Te enviamos un MD para comenzar tu postulación.', ephemeral: true });
+            await miembroObjetivo.setNickname(nuevoApodo);
 
-            const collector = mensajeDM.createMessageComponentCollector({ time: 60000 });
+            const embed = new EmbedBuilder()
+                .setTitle('👤 Actualización de Apodo')
+                .setColor('#57F287')
+                .setDescription(nuevoApodo ? `Apodo modificado a **${nuevoApodo}**.` : `Apodo restablecido.`)
+                .addFields(
+                    { name: '👤 Usuario', value: `${miembroObjetivo.user.tag}`, inline: true },
+                    { name: '🛡️ Ejecutado por', value: `${user.tag}`, inline: true }
+                )
+                .setFooter({ text: 'Registro de Identidades • CPU v1.0' })
+                .setTimestamp();
 
-            collector.on('collect', async i => {
-                if (i.customId === 'cancelar_postulacion') {
-                    await i.update({ content: '❌ Has cancelado la postulación.', embeds: [], components: [] });
-                    return;
-                }
-
-                if (i.customId === 'iniciar_postulacion') {
-                    await i.update({ content: '📝 **Proceso Iniciado.** Responde a las preguntas directamente por este chat.', embeds: [], components: [] });
-
-                    const preguntas = [
-                        '1️⃣ ¿Qué edad tienes y cuál es tu país de residencia?',
-                        '2️⃣ ¿Tienes experiencia previa como Moderador o Staff?',
-                        '3️⃣ ¿Cuántas horas diarias podrías dedicar al servidor?',
-                        '4️⃣ ¿Cómo reaccionarías si presencias una discusión subida de tono?'
-                    ];
-
-                    const respuestas = [];
-                    const dmChannel = await user.createDM();
-
-                    for (const preg of preguntas) {
-                        await dmChannel.send(`📌 **Pregunta:** ${preg}`);
-                        try {
-                            const resp = await dmChannel.awaitMessages({
-                                filter: m => m.author.id === user.id,
-                                max: 1,
-                                time: 180000,
-                                errors: ['time']
-                            });
-                            respuestas.push(resp.first().content);
-                        } catch (e) {
-                            return dmChannel.send('⏳ Se agotó el tiempo de respuesta. Postulación cancelada.');
-                        }
-                    }
-
-                    const canalDestino = guild.channels.cache.get(canalId);
-                    if (canalDestino) {
-                        const embedExpediente = new EmbedBuilder()
-                            .setTitle('📥 Nueva Postulación de Candidato')
-                            .setColor('#FEE75C')
-                            .setThumbnail(user.displayAvatarURL({ dynamic: true }))
-                            .setDescription(`Expediente recibido de **${user.tag}** (\`ID: ${user.id}\`).`)
-                            .addFields(
-                                { name: preguntas[0], value: respuestas[0] },
-                                { name: preguntas[1], value: respuestas[1] },
-                                { name: preguntas[2], value: respuestas[2] },
-                                { name: preguntas[3], value: respuestas[3] }
-                            )
-                            .setFooter({ text: 'Sistema de Reclutamiento • CPU v1.0' })
-                            .setTimestamp();
-
-                        await canalDestino.send({ embeds: [embedExpediente] });
-                        await dmChannel.send('✅ **¡Postulación enviada con éxito!**');
-                    } else {
-                        await dmChannel.send('⚠️ Hubo un error al enviar el expediente. Contacta a un admin.');
-                    }
-                }
-            });
-
+            return interaction.reply({ embeds: [embed] });
         } catch (error) {
-            return interaction.reply({ content: '❌ No pude enviarte un mensaje privado. Revisa tus ajustes de privacidad.', ephemeral: true });
+            return interaction.reply({ content: '❌ Error al modificar el apodo.', ephemeral: true });
         }
     }
+
+    // KICK, BAN, UNBAN, WARN, WARNS, CLEAR, LOCK, UNLOCK, POSTULARSE SE MANTIENEN VIGENTES
+    if (commandName === 'lock') return ejecutarLock(channel, user, (opts) => interaction.reply(opts));
+    if (commandName === 'unlock') return ejecutarUnlock(channel, user, (opts) => interaction.reply(opts));
 });
 
 client.login(TOKEN);
