@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { 
     Client, 
     GatewayIntentBits, 
@@ -24,9 +25,16 @@ const client = new Client({
     ]
 });
 
-// CONFIGURACIÓN CENTRAL
-const TOKEN = 'MTUxOTAyMzUxMDk4MTE4NTc5Ng.GMl5Qk.5UH5rPOusVjYQgRJ6zK8MMAfU6ZPgDSXJcHB1c';
-const CLIENT_ID = '1519023510981185796'; 
+// CONFIGURACIÓN CENTRAL (ahora desde variables de entorno, nunca hardcodeadas)
+const TOKEN = process.env.DISCORD_TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
+const GUILD_ID = process.env.GUILD_ID; // opcional: si existe, registra comandos solo en ese server (instantáneo, ideal para beta)
+
+if (!TOKEN || !CLIENT_ID) {
+    console.error('❌ Faltan DISCORD_TOKEN o CLIENT_ID en tu archivo .env. Revisa .env.example');
+    process.exit(1);
+}
+
 const ARCHIVO_WARNS = path.join(__dirname, 'warns.json');
 const ARCHIVO_CONFIG = path.join(__dirname, 'config.json');
 
@@ -169,8 +177,13 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 client.once('ready', async () => {
     console.log(`🚀 [CPU v1.0] Núcleo operativo inicializado y activo como ${client.user.tag}`);
     try {
-        await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-        console.log('✅ [CPU v1.0] Comandos de barra sincronizados de forma global.');
+        if (GUILD_ID) {
+            await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
+            console.log(`✅ [CPU v1.0] Comandos sincronizados al instante en el servidor de pruebas (${GUILD_ID}).`);
+        } else {
+            await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+            console.log('✅ [CPU v1.0] Comandos de barra sincronizados de forma global (puede tardar hasta 1 hora en verse).');
+        }
     } catch (error) {
         console.error('❌ [CPU v1.0] Error crítico al sincronizar comandos:', error);
     }
@@ -188,44 +201,56 @@ client.on('interactionCreate', async interaction => {
     if (commandName === 'kick') {
         if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
         if (!usuario.kickable) return interaction.reply({ content: '❌ Operación denegada: Privilegios insuficientes o jerarquía superior.', ephemeral: true });
-        await usuario.kick(razon);
 
-        const embed = new EmbedBuilder()
-            .setTitle('👢 Registro de Expulsión')
-            .setColor('#F2A30F')
-            .setDescription(`Se ha ejecutado la salida forzada de **${usuario.user.username}**.`)
-            .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
-            .addFields(
-                { name: '👤 Miembro Afectado', value: `${usuario.user.tag}\n\`ID: ${usuario.id}\``, inline: true },
-                { name: '🛡️ Moderador Responsable', value: `${user.tag}\n\`ID: ${user.id}\``, inline: true },
-                { name: '📝 Motivo de la Acción', value: `\`\`\`${razon}\`\`\``, inline: false }
-            )
-            .setFooter({ text: 'Sistema de Seguridad CPU v1.0 • Gestión de Servidores', iconURL: guild.iconURL() })
-            .setTimestamp();
+        try {
+            await usuario.kick(razon);
 
-        return interaction.reply({ embeds: [embed] });
+            const embed = new EmbedBuilder()
+                .setTitle('👢 Registro de Expulsión')
+                .setColor('#F2A30F')
+                .setDescription(`Se ha ejecutado la salida forzada de **${usuario.user.username}**.`)
+                .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
+                .addFields(
+                    { name: '👤 Miembro Afectado', value: `${usuario.user.tag}\n\`ID: ${usuario.id}\``, inline: true },
+                    { name: '🛡️ Moderador Responsable', value: `${user.tag}\n\`ID: ${user.id}\``, inline: true },
+                    { name: '📝 Motivo de la Acción', value: `\`\`\`${razon}\`\`\``, inline: false }
+                )
+                .setFooter({ text: 'Sistema de Seguridad CPU v1.0 • Gestión de Servidores', iconURL: guild.iconURL() })
+                .setTimestamp();
+
+            return interaction.reply({ embeds: [embed] });
+        } catch (error) {
+            console.error('Error en /kick:', error);
+            return interaction.reply({ content: '❌ Ocurrió un error al intentar expulsar al miembro.', ephemeral: true });
+        }
     }
 
     // COMANDO BAN
     if (commandName === 'ban') {
         if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
         if (!usuario.bannable) return interaction.reply({ content: '❌ Operación denegada: El miembro posee inmunidad o un rol superior.', ephemeral: true });
-        await guild.members.ban(usuario.id, { reason: razon });
 
-        const embed = new EmbedBuilder()
-            .setTitle('🚨 Restricción de Acceso Permanente (Baneo)')
-            .setColor('#ED4245')
-            .setDescription(`El usuario **${usuario.user.username}** ha sido vetado de forma indefinida.`)
-            .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
-            .addFields(
-                { name: '👤 Miembro Afectado', value: `${usuario.user.tag}\n\`ID: ${usuario.id}\``, inline: true },
-                { name: '🛡️ Moderador Responsable', value: `${user.tag}\n\`ID: ${user.id}\``, inline: true },
-                { name: '📝 Motivo de la Sanción', value: `\`\`\`${razon}\`\`\``, inline: false }
-            )
-            .setFooter({ text: 'Registro Central CPU v1.0 • Control de Seguridad', iconURL: guild.iconURL() })
-            .setTimestamp();
+        try {
+            await guild.members.ban(usuario.id, { reason: razon });
 
-        return interaction.reply({ embeds: [embed] });
+            const embed = new EmbedBuilder()
+                .setTitle('🚨 Restricción de Acceso Permanente (Baneo)')
+                .setColor('#ED4245')
+                .setDescription(`El usuario **${usuario.user.username}** ha sido vetado de forma indefinida.`)
+                .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
+                .addFields(
+                    { name: '👤 Miembro Afectado', value: `${usuario.user.tag}\n\`ID: ${usuario.id}\``, inline: true },
+                    { name: '🛡️ Moderador Responsable', value: `${user.tag}\n\`ID: ${user.id}\``, inline: true },
+                    { name: '📝 Motivo de la Sanción', value: `\`\`\`${razon}\`\`\``, inline: false }
+                )
+                .setFooter({ text: 'Registro Central CPU v1.0 • Control de Seguridad', iconURL: guild.iconURL() })
+                .setTimestamp();
+
+            return interaction.reply({ embeds: [embed] });
+        } catch (error) {
+            console.error('Error en /ban:', error);
+            return interaction.reply({ content: '❌ Ocurrió un error al intentar banear al miembro.', ephemeral: true });
+        }
     }
 
     // COMANDO UNBAN
@@ -256,24 +281,29 @@ client.on('interactionCreate', async interaction => {
         if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
         const minutes = options.getInteger('minutos');
         if (!usuario.moderatable) return interaction.reply({ content: '❌ Operación denegada: Imposible aplicar aislamiento a este rango.', ephemeral: true });
-        
-        await usuario.timeout(minutes * 60 * 1000, razon);
 
-        const embed = new EmbedBuilder()
-            .setTitle('⏳ Restricción Temporal (Mute)')
-            .setColor('#FEE75C')
-            .setDescription(`Se ha silenciado temporalmente a **${usuario.user.username}**.`)
-            .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
-            .addFields(
-                { name: '👤 Miembro Afectado', value: `${usuario.user.tag}`, inline: true },
-                { name: '⏱️ Duración', value: `\`${minutes} minutos\``, inline: true },
-                { name: '🛡️ Aplicado por', value: `${user.tag}`, inline: false },
-                { name: '📝 Motivo', value: `\`\`\`${razon}\`\`\``, inline: false }
-            )
-            .setFooter({ text: 'Sistema de Seguridad • CPU v1.0' })
-            .setTimestamp();
+        try {
+            await usuario.timeout(minutes * 60 * 1000, razon);
 
-        return interaction.reply({ embeds: [embed] });
+            const embed = new EmbedBuilder()
+                .setTitle('⏳ Restricción Temporal (Mute)')
+                .setColor('#FEE75C')
+                .setDescription(`Se ha silenciado temporalmente a **${usuario.user.username}**.`)
+                .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
+                .addFields(
+                    { name: '👤 Miembro Afectado', value: `${usuario.user.tag}`, inline: true },
+                    { name: '⏱️ Duración', value: `\`${minutes} minutos\``, inline: true },
+                    { name: '🛡️ Aplicado por', value: `${user.tag}`, inline: false },
+                    { name: '📝 Motivo', value: `\`\`\`${razon}\`\`\``, inline: false }
+                )
+                .setFooter({ text: 'Sistema de Seguridad • CPU v1.0' })
+                .setTimestamp();
+
+            return interaction.reply({ embeds: [embed] });
+        } catch (error) {
+            console.error('Error en /mute:', error);
+            return interaction.reply({ content: '❌ Ocurrió un error al intentar silenciar al miembro.', ephemeral: true });
+        }
     }
 
     // COMANDO UNMUTE
@@ -303,39 +333,44 @@ client.on('interactionCreate', async interaction => {
         if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
         if (usuario.user.bot) return interaction.reply({ content: '❌ Los perfiles automatizados (bots) no pueden recibir amonestaciones.', ephemeral: true });
 
-        let listaWarns = {};
         try {
-            listaWarns = JSON.parse(fs.readFileSync(ARCHIVO_WARNS, 'utf8'));
-        } catch (e) {
-            listaWarns = {};
+            let listaWarns = {};
+            try {
+                listaWarns = JSON.parse(fs.readFileSync(ARCHIVO_WARNS, 'utf8'));
+            } catch (e) {
+                listaWarns = {};
+            }
+
+            if (!listaWarns[usuario.id]) listaWarns[usuario.id] = [];
+
+            listaWarns[usuario.id].push({
+                moderador: user.tag,
+                razon: razon,
+                fecha: new Date().toLocaleDateString()
+            });
+
+            fs.writeFileSync(ARCHIVO_WARNS, JSON.stringify(listaWarns, null, 2), 'utf8');
+            const totalWarns = listaWarns[usuario.id].length;
+
+            const embed = new EmbedBuilder()
+                .setTitle('⚠️ Registro de Advertencia Formal')
+                .setColor('#ED4245')
+                .setDescription(`Se ha emitido un llamado de atención formal para **${usuario.user.username}**.`)
+                .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
+                .addFields(
+                    { name: '👤 Miembro Sancionado', value: `${usuario.user.tag}`, inline: true },
+                    { name: '📊 Incidencias Acumuladas', value: `\`${totalWarns} Advertencia(s)\``, inline: true },
+                    { name: '🛡️ Moderador Emisor', value: `${user.tag}`, inline: false },
+                    { name: '📝 Causa del Reporte', value: `\`\`\`${razon}\`\`\``, inline: false }
+                )
+                .setFooter({ text: 'Historial de Conducta CPU v1.0' })
+                .setTimestamp();
+
+            return interaction.reply({ embeds: [embed] });
+        } catch (error) {
+            console.error('Error en /warn:', error);
+            return interaction.reply({ content: '❌ Ocurrió un error al registrar la advertencia.', ephemeral: true });
         }
-
-        if (!listaWarns[usuario.id]) listaWarns[usuario.id] = [];
-
-        listaWarns[usuario.id].push({
-            moderador: user.tag,
-            razon: razon,
-            fecha: new Date().toLocaleDateString()
-        });
-
-        fs.writeFileSync(ARCHIVO_WARNS, JSON.stringify(listaWarns, null, 2), 'utf8');
-        const totalWarns = listaWarns[usuario.id].length;
-
-        const embed = new EmbedBuilder()
-            .setTitle('⚠️ Registro de Advertencia Formal')
-            .setColor('#ED4245')
-            .setDescription(`Se ha emitido un llamado de atención formal para **${usuario.user.username}**.`)
-            .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
-            .addFields(
-                { name: '👤 Miembro Sancionado', value: `${usuario.user.tag}`, inline: true },
-                { name: '📊 Incidencias Acumuladas', value: `\`${totalWarns} Advertencia(s)\``, inline: true },
-                { name: '🛡️ Moderador Emisor', value: `${user.tag}`, inline: false },
-                { name: '📝 Causa del Reporte', value: `\`\`\`${razon}\`\`\``, inline: false }
-            )
-            .setFooter({ text: 'Historial de Conducta CPU v1.0' })
-            .setTimestamp();
-
-        return interaction.reply({ embeds: [embed] });
     }
 
     // COMANDO WARNS
@@ -559,8 +594,10 @@ client.on('interactionCreate', async interaction => {
             await interaction.reply({ content: '📬 Te hemos enviado un MD para comenzar tu postulación.', ephemeral: true });
 
             const collector = mensajeDM.createMessageComponentCollector({ time: 60000 });
+            let respondido = false;
 
             collector.on('collect', async i => {
+                respondido = true;
                 if (i.customId === 'cancelar_postulacion') {
                     await i.update({ content: '❌ Has cancelado la postulación.', embeds: [], components: [] });
                     return;
@@ -615,6 +652,14 @@ client.on('interactionCreate', async interaction => {
                     } else {
                         await dmChannel.send('⚠️ Hubo un error al entregar el expediente. Contacta a un administrador.');
                     }
+                }
+            });
+
+            collector.on('end', async () => {
+                if (!respondido) {
+                    try {
+                        await mensajeDM.edit({ content: '⏳ El tiempo para responder expiró. Usa `/postularse` de nuevo si deseas continuar.', embeds: [], components: [] });
+                    } catch (e) { /* el MD pudo haber sido borrado por el usuario, se ignora */ }
                 }
             });
 

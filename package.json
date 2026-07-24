@@ -12,7 +12,7 @@
   "type": "commonjs",
   "dependencies": {
     "discord.js": "^14.26.4",
-    "experss": "^0.0.1-security",
+    "dotenv": "^16.4.5",
     "express": "^5.2.1"
   }
 }
