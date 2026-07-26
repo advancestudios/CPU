@@ -6,6 +6,7 @@ const {
     Routes, 
     SlashCommandBuilder, 
     PermissionFlagsBits, 
+    PermissionsBitField,
     EmbedBuilder, 
     ActionRowBuilder, 
     ButtonBuilder, 
@@ -21,9 +22,12 @@ const client = new Client({
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.DirectMessages
+        GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.MessageContent // necesario para leer comandos con prefijo ";"
     ]
 });
+
+const PREFIX = ';';
 
 // CONFIGURACIÓN CENTRAL (ahora desde variables de entorno, nunca hardcodeadas)
 const TOKEN = process.env.DISCORD_TOKEN;
@@ -37,6 +41,22 @@ if (!TOKEN || !CLIENT_ID) {
 
 const ARCHIVO_WARNS = path.join(__dirname, 'warns.json');
 const ARCHIVO_CONFIG = path.join(__dirname, 'config.json');
+
+// Permisos que se solicitan al invitar el bot a un nuevo servidor (usado en ;botinvite)
+const BOT_INVITE_PERMISSIONS = new PermissionsBitField([
+    PermissionFlagsBits.KickMembers,
+    PermissionFlagsBits.BanMembers,
+    PermissionFlagsBits.ManageChannels,
+    PermissionFlagsBits.ManageRoles,
+    PermissionFlagsBits.ModerateMembers,
+    PermissionFlagsBits.ManageNicknames,
+    PermissionFlagsBits.ManageMessages,
+    PermissionFlagsBits.ViewChannel,
+    PermissionFlagsBits.SendMessages,
+    PermissionFlagsBits.EmbedLinks,
+    PermissionFlagsBits.ReadMessageHistory,
+    PermissionFlagsBits.CreateInstantInvite
+]).bitfield.toString();
 
 // Servidor Express para mantener el bot activo en Render 24/7
 const app = express();
@@ -118,8 +138,28 @@ const commands = [
 
     new SlashCommandBuilder()
         .setName('warns')
-        .setDescription('Consulta el historial de advertencias')
-        .addUserOption(opt => opt.setName('usuario').setDescription('El miembro a consultar').setRequired(true)),
+        .setDescription('Gestiona el historial de advertencias de un miembro')
+        .addSubcommand(sub =>
+            sub.setName('view')
+               .setDescription('Consulta el historial de advertencias')
+               .addUserOption(opt => opt.setName('usuario').setDescription('El miembro a consultar').setRequired(true))
+        )
+        .addSubcommand(sub =>
+            sub.setName('clear')
+               .setDescription('Limpia el historial de advertencias de un miembro')
+               .addUserOption(opt => opt.setName('usuario').setDescription('El miembro a limpiar').setRequired(true))
+        )
+        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+
+    new SlashCommandBuilder()
+        .setName('userinfo')
+        .setDescription('Muestra información detallada de un miembro')
+        .addUserOption(opt => opt.setName('usuario').setDescription('Miembro a consultar (por defecto: tú mismo)').setRequired(false)),
+
+    new SlashCommandBuilder()
+        .setName('cmdcheck')
+        .setDescription('Verifica los permisos que posee un miembro en el servidor')
+        .addUserOption(opt => opt.setName('usuario').setDescription('Miembro a consultar (por defecto: tú mismo)').setRequired(false)),
 
     new SlashCommandBuilder()
         .setName('role')
@@ -149,16 +189,6 @@ const commands = [
         .setDescription('Modifica tu apodo o el de otro miembro')
         .addStringOption(opt => opt.setName('apodo').setDescription('Nuevo apodo (vacío para restablecer)').setRequired(false))
         .addUserOption(opt => opt.setName('usuario').setDescription('Miembro a modificar (Solo Administradores)').setRequired(false)),
-
-    new SlashCommandBuilder()
-        .setName('lock')
-        .setDescription('Bloquea el canal actual')
-        .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
-
-    new SlashCommandBuilder()
-        .setName('unlock')
-        .setDescription('Desbloquea el canal actual')
-        .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
 
     new SlashCommandBuilder()
         .setName('postularse')
@@ -373,9 +403,11 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // COMANDO WARNS
+    // SUBCOMANDOS WARNS (WARNS VIEW / WARNS CLEAR)
     if (commandName === 'warns') {
         if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
+        const sub = options.getSubcommand();
+
         let listaWarns = {};
         try {
             listaWarns = JSON.parse(fs.readFileSync(ARCHIVO_WARNS, 'utf8'));
@@ -383,30 +415,51 @@ client.on('interactionCreate', async interaction => {
             listaWarns = {};
         }
 
-        const usuarioWarns = listaWarns[usuario.id] || [];
-        const embed = new EmbedBuilder()
-            .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
-            .setTimestamp();
+        if (sub === 'view') {
+            const usuarioWarns = listaWarns[usuario.id] || [];
+            const embed = new EmbedBuilder()
+                .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
+                .setTimestamp();
 
-        if (usuarioWarns.length === 0) {
-            embed.setTitle(`📋 Registro de Historial de ${usuario.user.username}`)
-                 .setColor('#57F287')
-                 .setDescription(`✅ **Estado: Limpio.**\nEste usuario no cuenta con infracciones vigentes.`);
+            if (usuarioWarns.length === 0) {
+                embed.setTitle(`📋 Registro de Historial de ${usuario.user.username}`)
+                     .setColor('#57F287')
+                     .setDescription(`✅ **Estado: Limpio.**\nEste usuario no cuenta con infracciones vigentes.`);
+                return interaction.reply({ embeds: [embed] });
+            }
+
+            embed.setTitle(`📋 Expediente de Infracciones`)
+                 .setColor('#F2A30F')
+                 .setDescription(`Mostrando conductas archivadas para **${usuario.user.tag}**.\nTotal de registros: **${usuarioWarns.length}**\n─`);
+
+            usuarioWarns.forEach((w, index) => {
+                embed.addFields({
+                    name: `📁 Infracción #${index + 1} — Emitida el ${w.fecha}`,
+                    value: `**Supervisor:** \`${w.moderador}\`\n**Detalle:** *${w.razon}*`
+                });
+            });
+
             return interaction.reply({ embeds: [embed] });
         }
 
-        embed.setTitle(`📋 Expediente de Infracciones`)
-             .setColor('#F2A30F')
-             .setDescription(`Mostrando conductas archivadas para **${usuario.user.tag}**.\nTotal de registros: **${usuarioWarns.length}**\n─`);
+        if (sub === 'clear') {
+            if (!listaWarns[usuario.id] || listaWarns[usuario.id].length === 0) {
+                return interaction.reply({ content: `ℹ️ **${usuario.user.tag}** ya no tiene advertencias registradas.`, ephemeral: true });
+            }
 
-        usuarioWarns.forEach((w, index) => {
-            embed.addFields({
-                name: `📁 Infracción #${index + 1} — Emitida el ${w.fecha}`,
-                value: `**Supervisor:** \`${w.moderador}\`\n**Detalle:** *${w.razon}*`
-            });
-        });
+            delete listaWarns[usuario.id];
+            fs.writeFileSync(ARCHIVO_WARNS, JSON.stringify(listaWarns, null, 2), 'utf8');
 
-        return interaction.reply({ embeds: [embed] });
+            const embed = new EmbedBuilder()
+                .setTitle('🧹 Historial de Advertencias Limpiado')
+                .setColor('#57F287')
+                .setDescription(`Se han eliminado todas las advertencias de **${usuario.user.tag}**.`)
+                .addFields({ name: '🛡️ Autorizado por', value: `${user.tag}` })
+                .setFooter({ text: 'Historial de Conducta • CPU v1.0' })
+                .setTimestamp();
+
+            return interaction.reply({ embeds: [embed] });
+        }
     }
 
     // SUBCOMANDOS ROLE (ROLE ADD / ROLE REMOVE)
@@ -511,40 +564,72 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // COMANDO LOCK
-    if (commandName === 'lock') {
-        try {
-            await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false });
-            const embed = new EmbedBuilder()
-                .setTitle('🔒 Canal Bloqueado')
-                .setColor('#ED4245')
-                .setDescription(`El canal <#${channel.id}> ha sido cerrado temporalmente por la administración.`)
-                .addFields({ name: '🛡️ Moderador Responsable', value: `${user.tag}`, inline: true })
-                .setFooter({ text: 'Sistema de Seguridad • CPU v1.0' })
-                .setTimestamp();
+    // COMANDO USERINFO
+    if (commandName === 'userinfo') {
+        const miembro = options.getMember('usuario') || interaction.member;
+        const rolesOrdenados = miembro.roles.cache
+            .filter(r => r.id !== guild.id)
+            .sort((a, b) => b.position - a.position)
+            .map(r => `<@&${r.id}>`);
 
-            return interaction.reply({ embeds: [embed] });
-        } catch (e) {
-            return interaction.reply({ content: '❌ Permisos insuficientes para bloquear el canal.', ephemeral: true });
-        }
+        const embed = new EmbedBuilder()
+            .setTitle(`👤 Información de ${miembro.user.tag}`)
+            .setColor('#5865F2')
+            .setThumbnail(miembro.user.displayAvatarURL({ dynamic: true }))
+            .addFields(
+                { name: '🆔 ID de Usuario', value: `\`${miembro.id}\``, inline: false },
+                { name: '📅 Cuenta Creada', value: `<t:${Math.floor(miembro.user.createdTimestamp / 1000)}:F>`, inline: false },
+                { name: '📥 Se Unió al Servidor', value: miembro.joinedTimestamp ? `<t:${Math.floor(miembro.joinedTimestamp / 1000)}:F>` : 'Desconocido', inline: false },
+                { name: `🛡️ Roles (${rolesOrdenados.length})`, value: rolesOrdenados.length ? rolesOrdenados.join(', ') : 'Sin roles asignados', inline: false }
+            )
+            .setFooter({ text: 'Sistema de Información • CPU v1.0' })
+            .setTimestamp();
+
+        return interaction.reply({ embeds: [embed] });
     }
 
-    // COMANDO UNLOCK
-    if (commandName === 'unlock') {
-        try {
-            await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: null });
-            const embed = new EmbedBuilder()
-                .setTitle('🔓 Canal Desbloqueado')
-                .setColor('#57F287')
-                .setDescription(`Se han restablecido los permisos de envío de mensajes en <#${channel.id}>.`)
-                .addFields({ name: '🛡️ Moderador Responsable', value: `${user.tag}`, inline: true })
-                .setFooter({ text: 'Sistema de Seguridad • CPU v1.0' })
-                .setTimestamp();
+    // COMANDO CMDCHECK (VERIFICADOR DE PERMISOS)
+    if (commandName === 'cmdcheck') {
+        const miembro = options.getMember('usuario') || interaction.member;
 
-            return interaction.reply({ embeds: [embed] });
-        } catch (e) {
-            return interaction.reply({ content: '❌ Permisos insuficientes para desbloquear el canal.', ephemeral: true });
-        }
+        // Mapa de permisos técnicos -> nombre legible en español
+        const mapaPermisos = {
+            Administrator: 'Administrador',
+            ManageGuild: 'Gestionar Servidor',
+            ManageChannels: 'Gestionar Canales',
+            ManageRoles: 'Gestionar Roles',
+            ManageMessages: 'Gestionar Mensajes',
+            ManageNicknames: 'Gestionar Apodos',
+            ManageWebhooks: 'Gestionar Webhooks',
+            ManageEmojisAndStickers: 'Gestionar Emojis y Stickers',
+            KickMembers: 'Expulsar Miembros',
+            BanMembers: 'Banear Miembros',
+            ModerateMembers: 'Moderar Miembros (Timeout)',
+            MentionEveryone: 'Mencionar a Todos',
+            MuteMembers: 'Silenciar Miembros (Voz)',
+            DeafenMembers: 'Ensordecer Miembros (Voz)',
+            MoveMembers: 'Mover Miembros (Voz)',
+            ViewAuditLog: 'Ver Registro de Auditoría',
+            CreateInstantInvite: 'Crear Invitación'
+        };
+
+        const permisosActivos = Object.entries(mapaPermisos)
+            .filter(([flag]) => miembro.permissions.has(PermissionFlagsBits[flag]))
+            .map(([, nombre]) => `✅ ${nombre}`);
+
+        const embed = new EmbedBuilder()
+            .setTitle(`🔍 Verificación de Permisos — ${miembro.user.tag}`)
+            .setColor('#5865F2')
+            .setThumbnail(miembro.user.displayAvatarURL({ dynamic: true }))
+            .setDescription(
+                permisosActivos.length
+                    ? permisosActivos.join('\n')
+                    : 'ℹ️ Este miembro no posee permisos administrativos relevantes.'
+            )
+            .setFooter({ text: 'Sistema de Seguridad • CPU v1.0' })
+            .setTimestamp();
+
+        return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
     // COMANDO SET-CANAL-POSTULACIONES
@@ -606,12 +691,20 @@ client.on('interactionCreate', async interaction => {
                 if (i.customId === 'iniciar_postulacion') {
                     await i.update({ content: '📝 **Proceso Iniciado.** Responde a las siguientes preguntas directamente por este chat.', embeds: [], components: [] });
 
+                    // ================================================
+                    // 📋 PREGUNTAS DE POSTULACIÓN — EDITA AQUÍ
+                    // Agrega, quita o cambia el texto de cada pregunta.
+                    // El bot las envía en el mismo orden en que aparecen.
+                    // ================================================
                     const preguntas = [
                         '1️⃣ ¿Qué edad tienes y cuál es tu país de residencia?',
                         '2️⃣ ¿Tienes experiencia previa como Moderador o Staff?',
                         '3️⃣ ¿Cuántas horas diarias podrías dedicar al servidor?',
                         '4️⃣ ¿Cómo reaccionarías si presencias una discusión subida de tono?'
                     ];
+                    // ================================================
+                    // FIN PREGUNTAS DE POSTULACIÓN
+                    // ================================================
 
                     const respuestas = [];
                     const dmChannel = await user.createDM();
@@ -665,6 +758,150 @@ client.on('interactionCreate', async interaction => {
 
         } catch (error) {
             return interaction.reply({ content: '❌ No pude enviarte un mensaje privado. Revisa tus ajustes de privacidad.', ephemeral: true });
+        }
+    }
+});
+
+// 3. COMANDOS CON PREFIJO PERSONALIZADO ";" (SOLO LOCK Y UNLOCK)
+client.on('messageCreate', async message => {
+    if (message.author.bot) return;
+    if (!message.guild) return; // ignorar DMs
+    if (!message.content.startsWith(PREFIX)) return;
+
+    const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
+    const comando = args.shift().toLowerCase();
+
+    if (comando === 'ping') {
+        const inicio = Date.now();
+        const msg = await message.reply({ content: '🏓 Calculando...' });
+        const latencia = Date.now() - inicio;
+        return msg.edit({ content: `🏓 **Pong!**\n📡 Latencia: \`${latencia}ms\`\n💓 WebSocket: \`${client.ws.ping}ms\`` });
+    }
+
+    if (comando === 'help') {
+        // ================================================
+        // 📖 LISTA DE COMANDOS — EDITA AQUÍ
+        // Cada clave es el nombre de la categoría/página.
+        // ================================================
+        const listaComandos = {
+            'Moderación (Slash)': [
+                '`/kick` — Expulsa a un miembro',
+                '`/ban` — Banea a un miembro',
+                '`/unban` — Revoca un baneo',
+                '`/mute` — Silencia temporalmente',
+                '`/unmute` — Remueve el silencio',
+                '`/warn` — Registra una advertencia',
+                '`/warns view` — Consulta el historial de advertencias',
+                '`/warns clear` — Limpia el historial de advertencias',
+                '`/role add` — Asigna un rol',
+                '`/role remove` — Remueve un rol',
+                '`/clear` — Elimina mensajes masivamente'
+            ],
+            'Utilidad (Slash)': [
+                '`/nick` — Cambia tu apodo o el de otro miembro',
+                '`/userinfo` — Información de un miembro',
+                '`/cmdcheck` — Verifica los permisos de un miembro',
+                '`/postularse` — Inicia tu proceso de postulación',
+                '`/set-canal-postulaciones` — Configura el canal de postulaciones'
+            ],
+            'Generales (Prefijo ;)': [
+                '`;ping` — Verifica la latencia del bot',
+                '`;help` — Muestra este panel de comandos',
+                '`;botinvite` — Obtén el enlace para invitar al bot',
+                '`;serverinvite` — Recibe la invitación de este servidor por MD',
+                '`;lock` — Bloquea el canal actual',
+                '`;unlock` — Desbloquea el canal actual'
+            ]
+        };
+        // ================================================
+        // FIN LISTA DE COMANDOS
+        // ================================================
+
+        const categorias = Object.keys(listaComandos);
+        let pagina = 0;
+
+        const construirEmbed = (i) => new EmbedBuilder()
+            .setTitle('🖥️ Panel de Comandos — CPU v1.0')
+            .setColor('#5865F2')
+            .setThumbnail(client.user.displayAvatarURL())
+            .setDescription(`¡Bienvenido, **${message.author.username}**!\nEste es el panel de comandos de **${message.guild.name}**. Usa los botones para navegar entre categorías.`)
+            .addFields({ name: `📂 ${categorias[i]}`, value: listaComandos[categorias[i]].join('\n') })
+            .setFooter({ text: `Página ${i + 1} de ${categorias.length} • CPU v1.0` })
+            .setTimestamp();
+
+        const construirBotones = (i) => new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('help_prev').setLabel('⬅️ Anterior').setStyle(ButtonStyle.Secondary).setDisabled(i === 0),
+            new ButtonBuilder().setCustomId('help_next').setLabel('Siguiente ➡️').setStyle(ButtonStyle.Secondary).setDisabled(i === categorias.length - 1)
+        );
+
+        const helpMsg = await message.reply({ embeds: [construirEmbed(pagina)], components: [construirBotones(pagina)] });
+        const collector = helpMsg.createMessageComponentCollector({ time: 120000 });
+
+        collector.on('collect', async i => {
+            if (i.user.id !== message.author.id) {
+                return i.reply({ content: '❌ Solo quien ejecutó el comando puede navegar este menú.', ephemeral: true });
+            }
+            if (i.customId === 'help_next') pagina++;
+            if (i.customId === 'help_prev') pagina--;
+            await i.update({ embeds: [construirEmbed(pagina)], components: [construirBotones(pagina)] });
+        });
+
+        collector.on('end', async () => {
+            try { await helpMsg.edit({ components: [] }); } catch (e) { /* el mensaje pudo haber sido borrado */ }
+        });
+        return;
+    }
+
+    if (comando === 'botinvite') {
+        const inviteURL = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&permissions=${BOT_INVITE_PERMISSIONS}&scope=bot%20applications.commands`;
+        const embed = new EmbedBuilder()
+            .setTitle('🤖 Invita a CPU v1.0 a tu Servidor')
+            .setColor('#5865F2')
+            .setThumbnail(client.user.displayAvatarURL())
+            .setDescription(`Haz clic en el siguiente enlace para agregar este bot a tu propio servidor:\n[**➕ Invitar Bot**](${inviteURL})`)
+            .setFooter({ text: 'CPU v1.0 • Enlace de Invitación' })
+            .setTimestamp();
+        return message.reply({ embeds: [embed] });
+    }
+
+    if (comando === 'serverinvite') {
+        try {
+            const invite = await message.channel.createInvite({ maxAge: 0, maxUses: 0, unique: false });
+            const embed = new EmbedBuilder()
+                .setTitle(`📨 Invitación a ${message.guild.name}`)
+                .setColor('#57F287')
+                .setThumbnail(message.guild.iconURL({ dynamic: true }))
+                .setDescription(`Aquí tienes tu enlace de invitación:\n${invite.url}`)
+                .setFooter({ text: 'CPU v1.0 • Enlace de Invitación' })
+                .setTimestamp();
+            await message.author.send({ embeds: [embed] });
+            return message.reply({ content: '✅ Te envié la invitación del servidor por MD.' });
+        } catch (error) {
+            return message.reply({ content: '❌ No se pudo generar o enviar la invitación. Revisa que tenga el permiso "Crear Invitación" y que tus MD estén abiertos.' });
+        }
+    }
+
+    if (comando === 'lock') {
+        if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+            return message.reply({ content: '❌ No se pudo bloquear el canal.' });
+        }
+        try {
+            await message.channel.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: false });
+            return message.channel.send({ content: '✅ Canal bloqueado.' });
+        } catch (e) {
+            return message.reply({ content: '❌ No se pudo bloquear el canal.' });
+        }
+    }
+
+    if (comando === 'unlock') {
+        if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+            return message.reply({ content: '❌ No se pudo desbloquear el canal.' });
+        }
+        try {
+            await message.channel.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: null });
+            return message.channel.send({ content: '✅ Canal desbloqueado.' });
+        } catch (e) {
+            return message.reply({ content: '❌ No se pudo desbloquear el canal.' });
         }
     }
 });
