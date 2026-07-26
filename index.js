@@ -63,11 +63,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-    res.send('🤖 CPU v1.0 - El Cerebro Operativo de tu Servidor está Online.');
+    res.send('🤖 CPU v2 - El Cerebro Operativo de tu Servidor está Online.');
 });
 
 app.listen(PORT, () => {
-    console.log(`🌐 [CPU v1.0] Servidor web de monitoreo activo en el puerto ${PORT}`);
+    console.log(`🌐 [CPU v2] Servidor web de monitoreo activo en el puerto ${PORT}`);
 });
 
 // Archivos de datos locales
@@ -205,17 +205,17 @@ const commands = [
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
 client.once('ready', async () => {
-    console.log(`🚀 [CPU v1.0] Núcleo operativo inicializado y activo como ${client.user.tag}`);
+    console.log(`🚀 [CPU v2] Núcleo operativo inicializado y activo como ${client.user.tag}`);
     try {
         if (GUILD_ID) {
             await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
-            console.log(`✅ [CPU v1.0] Comandos sincronizados al instante en el servidor de pruebas (${GUILD_ID}).`);
+            console.log(`✅ [CPU v2] Comandos sincronizados al instante en el servidor de pruebas (${GUILD_ID}).`);
         } else {
             await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-            console.log('✅ [CPU v1.0] Comandos de barra sincronizados de forma global (puede tardar hasta 1 hora en verse).');
+            console.log('✅ [CPU v2] Comandos de barra sincronizados de forma global (puede tardar hasta 1 hora en verse).');
         }
     } catch (error) {
-        console.error('❌ [CPU v1.0] Error crítico al sincronizar comandos:', error);
+        console.error('❌ [CPU v2] Error crítico al sincronizar comandos:', error);
     }
 });
 
@@ -236,16 +236,15 @@ client.on('interactionCreate', async interaction => {
             await usuario.kick(razon);
 
             const embed = new EmbedBuilder()
-                .setTitle('👢 Registro de Expulsión')
+                .setTitle('👢 Miembro Expulsado')
                 .setColor('#F2A30F')
-                .setDescription(`Se ha ejecutado la salida forzada de **${usuario.user.username}**.`)
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .addFields(
-                    { name: '👤 Miembro Afectado', value: `${usuario.user.tag}\n\`ID: ${usuario.id}\``, inline: true },
-                    { name: '🛡️ Moderador Responsable', value: `${user.tag}\n\`ID: ${user.id}\``, inline: true },
-                    { name: '📝 Motivo de la Acción', value: `\`\`\`${razon}\`\`\``, inline: false }
+                    { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
+                    { name: 'Moderador', value: `${user.username}`, inline: true },
+                    { name: 'Razón', value: razon, inline: false }
                 )
-                .setFooter({ text: 'Sistema de Seguridad CPU v1.0 • Gestión de Servidores', iconURL: guild.iconURL() })
+                .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
             return interaction.reply({ embeds: [embed] });
@@ -264,16 +263,15 @@ client.on('interactionCreate', async interaction => {
             await guild.members.ban(usuario.id, { reason: razon });
 
             const embed = new EmbedBuilder()
-                .setTitle('🚨 Restricción de Acceso Permanente (Baneo)')
+                .setTitle('🔨 Miembro Baneado')
                 .setColor('#ED4245')
-                .setDescription(`El usuario **${usuario.user.username}** ha sido vetado de forma indefinida.`)
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .addFields(
-                    { name: '👤 Miembro Afectado', value: `${usuario.user.tag}\n\`ID: ${usuario.id}\``, inline: true },
-                    { name: '🛡️ Moderador Responsable', value: `${user.tag}\n\`ID: ${user.id}\``, inline: true },
-                    { name: '📝 Motivo de la Sanción', value: `\`\`\`${razon}\`\`\``, inline: false }
+                    { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
+                    { name: 'Moderador', value: `${user.username}`, inline: true },
+                    { name: 'Razón', value: razon, inline: false }
                 )
-                .setFooter({ text: 'Registro Central CPU v1.0 • Control de Seguridad', iconURL: guild.iconURL() })
+                .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
             return interaction.reply({ embeds: [embed] });
@@ -290,14 +288,13 @@ client.on('interactionCreate', async interaction => {
             await guild.members.unban(userId);
 
             const embed = new EmbedBuilder()
-                .setTitle('✅ Revocación de Veto')
+                .setTitle('✅ Baneo Revocado')
                 .setColor('#57F287')
-                .setDescription(`Se han restablecido los derechos de ingreso de forma exitosa.`)
                 .addFields(
-                    { name: '🆔 Identificador Removido', value: `\`${userId}\``, inline: true },
-                    { name: '🛡️ Autorizado por', value: `${user.tag}`, inline: true }
+                    { name: 'ID Revocado', value: `${userId}`, inline: true },
+                    { name: 'Moderador', value: `${user.username}`, inline: true }
                 )
-                .setFooter({ text: 'Módulo de Gestión CPU v1.0' })
+                .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
             return interaction.reply({ embeds: [embed] });
@@ -316,17 +313,16 @@ client.on('interactionCreate', async interaction => {
             await usuario.timeout(minutes * 60 * 1000, razon);
 
             const embed = new EmbedBuilder()
-                .setTitle('⏳ Restricción Temporal (Mute)')
+                .setTitle('🔇 Miembro Silenciado')
                 .setColor('#FEE75C')
-                .setDescription(`Se ha silenciado temporalmente a **${usuario.user.username}**.`)
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .addFields(
-                    { name: '👤 Miembro Afectado', value: `${usuario.user.tag}`, inline: true },
-                    { name: '⏱️ Duración', value: `\`${minutes} minutos\``, inline: true },
-                    { name: '🛡️ Aplicado por', value: `${user.tag}`, inline: false },
-                    { name: '📝 Motivo', value: `\`\`\`${razon}\`\`\``, inline: false }
+                    { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
+                    { name: 'Duración', value: `${minutes} min`, inline: true },
+                    { name: 'Moderador', value: `${user.username}`, inline: true },
+                    { name: 'Razón', value: razon, inline: false }
                 )
-                .setFooter({ text: 'Sistema de Seguridad • CPU v1.0' })
+                .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
             return interaction.reply({ embeds: [embed] });
@@ -345,14 +341,13 @@ client.on('interactionCreate', async interaction => {
         await usuario.timeout(null);
 
         const embed = new EmbedBuilder()
-            .setTitle('🔊 Remoción de Mute')
+            .setTitle('🔊 Silencio Removido')
             .setColor('#57F287')
-            .setDescription(`Se ha desilenciado a **${usuario.user.tag}**.`)
             .addFields(
-                { name: '👤 Miembro Restablecido', value: `${usuario.user.tag}`, inline: true },
-                { name: '🛡️ Gestionado por', value: `${user.tag}`, inline: true }
+                { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
+                { name: 'Moderador', value: `${user.username}`, inline: true }
             )
-            .setFooter({ text: 'Módulo de Gestión CPU v1.0' })
+            .setFooter({ text: 'CPU v2' })
             .setTimestamp();
 
         return interaction.reply({ embeds: [embed] });
@@ -383,17 +378,15 @@ client.on('interactionCreate', async interaction => {
             const totalWarns = listaWarns[usuario.id].length;
 
             const embed = new EmbedBuilder()
-                .setTitle('⚠️ Registro de Advertencia Formal')
+                .setTitle('⚠️ Miembro Advertido')
                 .setColor('#ED4245')
-                .setDescription(`Se ha emitido un llamado de atención formal para **${usuario.user.username}**.`)
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .addFields(
-                    { name: '👤 Miembro Sancionado', value: `${usuario.user.tag}`, inline: true },
-                    { name: '📊 Incidencias Acumuladas', value: `\`${totalWarns} Advertencia(s)\``, inline: true },
-                    { name: '🛡️ Moderador Emisor', value: `${user.tag}`, inline: false },
-                    { name: '📝 Causa del Reporte', value: `\`\`\`${razon}\`\`\``, inline: false }
+                    { name: 'Miembro Advertido', value: `${usuario.user.username}`, inline: true },
+                    { name: 'Historial de Warns', value: `${totalWarns}`, inline: true },
+                    { name: 'Razón', value: razon, inline: false }
                 )
-                .setFooter({ text: 'Historial de Conducta CPU v1.0' })
+                .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
             return interaction.reply({ embeds: [embed] });
@@ -422,20 +415,26 @@ client.on('interactionCreate', async interaction => {
                 .setTimestamp();
 
             if (usuarioWarns.length === 0) {
-                embed.setTitle(`📋 Registro de Historial de ${usuario.user.username}`)
+                embed.setTitle('📋 Historial de Advertencias')
                      .setColor('#57F287')
-                     .setDescription(`✅ **Estado: Limpio.**\nEste usuario no cuenta con infracciones vigentes.`);
+                     .addFields(
+                        { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
+                        { name: 'Estado', value: 'Sin advertencias', inline: true }
+                     );
                 return interaction.reply({ embeds: [embed] });
             }
 
-            embed.setTitle(`📋 Expediente de Infracciones`)
+            embed.setTitle('📋 Historial de Advertencias')
                  .setColor('#F2A30F')
-                 .setDescription(`Mostrando conductas archivadas para **${usuario.user.tag}**.\nTotal de registros: **${usuarioWarns.length}**\n─`);
+                 .addFields(
+                    { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
+                    { name: 'Total', value: `${usuarioWarns.length}`, inline: true }
+                 );
 
             usuarioWarns.forEach((w, index) => {
                 embed.addFields({
-                    name: `📁 Infracción #${index + 1} — Emitida el ${w.fecha}`,
-                    value: `**Supervisor:** \`${w.moderador}\`\n**Detalle:** *${w.razon}*`
+                    name: `#${index + 1} — ${w.fecha}`,
+                    value: `Mod: ${w.moderador} • Razón: ${w.razon}`
                 });
             });
 
@@ -444,18 +443,20 @@ client.on('interactionCreate', async interaction => {
 
         if (sub === 'clear') {
             if (!listaWarns[usuario.id] || listaWarns[usuario.id].length === 0) {
-                return interaction.reply({ content: `ℹ️ **${usuario.user.tag}** ya no tiene advertencias registradas.`, ephemeral: true });
+                return interaction.reply({ content: `ℹ️ **${usuario.user.username}** ya no tiene advertencias registradas.`, ephemeral: true });
             }
 
             delete listaWarns[usuario.id];
             fs.writeFileSync(ARCHIVO_WARNS, JSON.stringify(listaWarns, null, 2), 'utf8');
 
             const embed = new EmbedBuilder()
-                .setTitle('🧹 Historial de Advertencias Limpiado')
+                .setTitle('🧹 Historial Limpiado')
                 .setColor('#57F287')
-                .setDescription(`Se han eliminado todas las advertencias de **${usuario.user.tag}**.`)
-                .addFields({ name: '🛡️ Autorizado por', value: `${user.tag}` })
-                .setFooter({ text: 'Historial de Conducta • CPU v1.0' })
+                .addFields(
+                    { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
+                    { name: 'Moderador', value: `${user.username}`, inline: true }
+                )
+                .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
             return interaction.reply({ embeds: [embed] });
@@ -477,14 +478,14 @@ client.on('interactionCreate', async interaction => {
             await usuario.roles.add(rol);
 
             const embed = new EmbedBuilder()
-                .setTitle('💼 Role Add — Permisos Otorgados')
+                .setTitle('➕ Rol Asignado')
                 .setColor('#57F287')
                 .addFields(
-                    { name: '👤 Receptor', value: `${usuario.user.tag}`, inline: true },
-                    { name: '🛡️ Rol Otorgado', value: `<@&${rol.id}>`, inline: true },
-                    { name: '✍️ Autorizado por', value: `${user.tag}`, inline: false }
+                    { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
+                    { name: 'Rol', value: `<@&${rol.id}>`, inline: true },
+                    { name: 'Moderador', value: `${user.username}`, inline: true }
                 )
-                .setFooter({ text: 'Gestión de Permisos • CPU v1.0' })
+                .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
             return interaction.reply({ embeds: [embed] });
@@ -495,14 +496,14 @@ client.on('interactionCreate', async interaction => {
             await usuario.roles.remove(rol);
 
             const embed = new EmbedBuilder()
-                .setTitle('💼 Role Remove — Permisos Revocados')
+                .setTitle('➖ Rol Removido')
                 .setColor('#ED4245')
                 .addFields(
-                    { name: '👤 Afectado', value: `${usuario.user.tag}`, inline: true },
-                    { name: '🛡️ Rol Retirado', value: `<@&${rol.id}>`, inline: true },
-                    { name: '✍️ Modificado por', value: `${user.tag}`, inline: false }
+                    { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
+                    { name: 'Rol', value: `<@&${rol.id}>`, inline: true },
+                    { name: 'Moderador', value: `${user.username}`, inline: true }
                 )
-                .setFooter({ text: 'Gestión de Permisos • CPU v1.0' })
+                .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
             return interaction.reply({ embeds: [embed] });
@@ -548,14 +549,14 @@ client.on('interactionCreate', async interaction => {
             await miembroObjetivo.setNickname(nuevoApodo);
 
             const embed = new EmbedBuilder()
-                .setTitle('👤 Actualización de Apodo')
+                .setTitle('✏️ Apodo Actualizado')
                 .setColor('#57F287')
-                .setDescription(nuevoApodo ? `Apodo actualizado a **${nuevoApodo}**.` : `Apodo restablecido.`)
                 .addFields(
-                    { name: '👤 Usuario', value: `${miembroObjetivo.user.tag}`, inline: true },
-                    { name: '🛡️ Ejecutado por', value: `${user.tag}`, inline: true }
+                    { name: 'Miembro', value: `${miembroObjetivo.user.username}`, inline: true },
+                    { name: 'Nuevo Apodo', value: nuevoApodo || 'Restablecido', inline: true },
+                    { name: 'Moderador', value: `${user.username}`, inline: true }
                 )
-                .setFooter({ text: 'Registro de Identidades • CPU v1.0' })
+                .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
             return interaction.reply({ embeds: [embed] });
@@ -573,16 +574,16 @@ client.on('interactionCreate', async interaction => {
             .map(r => `<@&${r.id}>`);
 
         const embed = new EmbedBuilder()
-            .setTitle(`👤 Información de ${miembro.user.tag}`)
+            .setTitle(`👤 ${miembro.user.username}`)
             .setColor('#5865F2')
             .setThumbnail(miembro.user.displayAvatarURL({ dynamic: true }))
             .addFields(
-                { name: '🆔 ID de Usuario', value: `\`${miembro.id}\``, inline: false },
-                { name: '📅 Cuenta Creada', value: `<t:${Math.floor(miembro.user.createdTimestamp / 1000)}:F>`, inline: false },
-                { name: '📥 Se Unió al Servidor', value: miembro.joinedTimestamp ? `<t:${Math.floor(miembro.joinedTimestamp / 1000)}:F>` : 'Desconocido', inline: false },
-                { name: `🛡️ Roles (${rolesOrdenados.length})`, value: rolesOrdenados.length ? rolesOrdenados.join(', ') : 'Sin roles asignados', inline: false }
+                { name: 'ID', value: `${miembro.id}`, inline: false },
+                { name: 'Cuenta Creada', value: `<t:${Math.floor(miembro.user.createdTimestamp / 1000)}:D>`, inline: true },
+                { name: 'Se Unió', value: miembro.joinedTimestamp ? `<t:${Math.floor(miembro.joinedTimestamp / 1000)}:D>` : 'Desconocido', inline: true },
+                { name: `Roles (${rolesOrdenados.length})`, value: rolesOrdenados.length ? rolesOrdenados.join(', ') : 'Ninguno', inline: false }
             )
-            .setFooter({ text: 'Sistema de Información • CPU v1.0' })
+            .setFooter({ text: 'CPU v2' })
             .setTimestamp();
 
         return interaction.reply({ embeds: [embed] });
@@ -618,15 +619,11 @@ client.on('interactionCreate', async interaction => {
             .map(([, nombre]) => `✅ ${nombre}`);
 
         const embed = new EmbedBuilder()
-            .setTitle(`🔍 Verificación de Permisos — ${miembro.user.tag}`)
+            .setTitle(`🔍 Permisos — ${miembro.user.username}`)
             .setColor('#5865F2')
             .setThumbnail(miembro.user.displayAvatarURL({ dynamic: true }))
-            .setDescription(
-                permisosActivos.length
-                    ? permisosActivos.join('\n')
-                    : 'ℹ️ Este miembro no posee permisos administrativos relevantes.'
-            )
-            .setFooter({ text: 'Sistema de Seguridad • CPU v1.0' })
+            .setDescription(permisosActivos.length ? permisosActivos.join('\n') : 'Sin permisos administrativos relevantes.')
+            .setFooter({ text: 'CPU v2' })
             .setTimestamp();
 
         return interaction.reply({ embeds: [embed], ephemeral: true });
@@ -640,10 +637,10 @@ client.on('interactionCreate', async interaction => {
         guardarConfig(config);
 
         const embed = new EmbedBuilder()
-            .setTitle('⚙️ Configuración del Canal de Postulaciones')
+            .setTitle('⚙️ Canal Configurado')
             .setColor('#57F287')
-            .setDescription(`Se ha vinculado el canal <#${canalTexto.id}> para recibir los expedientes enviados por **CPU v1.0**.`)
-            .setFooter({ text: 'Sistema de Reclutamiento • CPU v1.0' })
+            .addFields({ name: 'Canal de Postulaciones', value: `<#${canalTexto.id}>` })
+            .setFooter({ text: 'CPU v2' })
             .setTimestamp();
 
         return interaction.reply({ embeds: [embed], ephemeral: true });
@@ -667,11 +664,11 @@ client.on('interactionCreate', async interaction => {
         );
 
         const embedMD = new EmbedBuilder()
-            .setTitle(`📜 Postulación al Equipo de Staff — ${guild.name}`)
+            .setTitle(`📜 Postulación — ${guild.name}`)
             .setColor('#57F287')
-            .setDescription(`¡Hola, **${user.username}**!\n\nBienvenido al proceso oficial de postulación para **${guild.name}**.\n\nPresiona **Aceptar** para iniciar o **Rechazar** para cancelar.`)
+            .setDescription(`Hola **${user.username}**, presiona **Aceptar** para iniciar tu postulación o **Rechazar** para cancelar.`)
             .setThumbnail(guild.iconURL({ dynamic: true }))
-            .setFooter({ text: 'Sistema Central CPU v1.0 • Módulo de Selección' })
+            .setFooter({ text: 'CPU v2' })
             .setTimestamp();
 
         try {
@@ -727,17 +724,17 @@ client.on('interactionCreate', async interaction => {
                     const canalDestino = guild.channels.cache.get(canalId);
                     if (canalDestino) {
                         const embedExpediente = new EmbedBuilder()
-                            .setTitle('📥 Nueva Postulación de Candidato')
+                            .setTitle('📥 Nueva Postulación')
                             .setColor('#FEE75C')
                             .setThumbnail(user.displayAvatarURL({ dynamic: true }))
-                            .setDescription(`Expediente recibido de **${user.tag}** (\`ID: ${user.id}\`).`)
                             .addFields(
+                                { name: 'Candidato', value: `${user.username}`, inline: false },
                                 { name: preguntas[0], value: respuestas[0] },
                                 { name: preguntas[1], value: respuestas[1] },
                                 { name: preguntas[2], value: respuestas[2] },
                                 { name: preguntas[3], value: respuestas[3] }
                             )
-                            .setFooter({ text: 'Sistema de Reclutamiento • CPU v1.0' })
+                            .setFooter({ text: 'CPU v2' })
                             .setTimestamp();
 
                         await canalDestino.send({ embeds: [embedExpediente] });
@@ -821,12 +818,11 @@ client.on('messageCreate', async message => {
         let pagina = 0;
 
         const construirEmbed = (i) => new EmbedBuilder()
-            .setTitle('🖥️ Panel de Comandos — CPU v1.0')
+            .setTitle('🖥️ Panel de Comandos')
             .setColor('#5865F2')
             .setThumbnail(client.user.displayAvatarURL())
-            .setDescription(`¡Bienvenido, **${message.author.username}**!\nEste es el panel de comandos de **${message.guild.name}**. Usa los botones para navegar entre categorías.`)
             .addFields({ name: `📂 ${categorias[i]}`, value: listaComandos[categorias[i]].join('\n') })
-            .setFooter({ text: `Página ${i + 1} de ${categorias.length} • CPU v1.0` })
+            .setFooter({ text: `Página ${i + 1} de ${categorias.length} • CPU v2` })
             .setTimestamp();
 
         const construirBotones = (i) => new ActionRowBuilder().addComponents(
@@ -855,11 +851,11 @@ client.on('messageCreate', async message => {
     if (comando === 'botinvite') {
         const inviteURL = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&permissions=${BOT_INVITE_PERMISSIONS}&scope=bot%20applications.commands`;
         const embed = new EmbedBuilder()
-            .setTitle('🤖 Invita a CPU v1.0 a tu Servidor')
+            .setTitle('🤖 Invitar a CPU v2')
             .setColor('#5865F2')
             .setThumbnail(client.user.displayAvatarURL())
-            .setDescription(`Haz clic en el siguiente enlace para agregar este bot a tu propio servidor:\n[**➕ Invitar Bot**](${inviteURL})`)
-            .setFooter({ text: 'CPU v1.0 • Enlace de Invitación' })
+            .addFields({ name: 'Enlace', value: `[Invitar Bot](${inviteURL})` })
+            .setFooter({ text: 'CPU v2' })
             .setTimestamp();
         return message.reply({ embeds: [embed] });
     }
@@ -868,11 +864,11 @@ client.on('messageCreate', async message => {
         try {
             const invite = await message.channel.createInvite({ maxAge: 0, maxUses: 0, unique: false });
             const embed = new EmbedBuilder()
-                .setTitle(`📨 Invitación a ${message.guild.name}`)
+                .setTitle(`📨 Invitación — ${message.guild.name}`)
                 .setColor('#57F287')
                 .setThumbnail(message.guild.iconURL({ dynamic: true }))
-                .setDescription(`Aquí tienes tu enlace de invitación:\n${invite.url}`)
-                .setFooter({ text: 'CPU v1.0 • Enlace de Invitación' })
+                .addFields({ name: 'Enlace', value: invite.url })
+                .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
             await message.author.send({ embeds: [embed] });
             return message.reply({ content: '✅ Te envié la invitación del servidor por MD.' });
