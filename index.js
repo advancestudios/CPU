@@ -32,7 +32,6 @@ const PREFIX = ';';
 // CONFIGURACIÓN CENTRAL (ahora desde variables de entorno, nunca hardcodeadas)
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
-const GUILD_ID = process.env.GUILD_ID; // opcional: si existe, registra comandos solo en ese server (instantáneo, ideal para beta)
 
 if (!TOKEN || !CLIENT_ID) {
     console.error('❌ Faltan DISCORD_TOKEN o CLIENT_ID en tu archivo .env. Revisa .env.example');
