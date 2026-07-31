@@ -206,13 +206,8 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 client.once('ready', async () => {
     console.log(`🚀 [CPU v2] Núcleo operativo inicializado y activo como ${client.user.tag}`);
     try {
-        if (GUILD_ID) {
-            await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
-            console.log(`✅ [CPU v2] Comandos sincronizados al instante en el servidor de pruebas (${GUILD_ID}).`);
-        } else {
-            await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-            console.log('✅ [CPU v2] Comandos de barra sincronizados de forma global (puede tardar hasta 1 hora en verse).');
-        }
+        await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+        console.log('✅ [CPU v2] Comandos de barra sincronizados de forma global (puede tardar hasta 1 hora en verse).');
     } catch (error) {
         console.error('❌ [CPU v2] Error crítico al sincronizar comandos:', error);
     }
