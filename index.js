@@ -80,6 +80,41 @@ function guardarConfig(data) {
     fs.writeFileSync(ARCHIVO_CONFIG, JSON.stringify(data, null, 2), 'utf8');
 }
 
+// Config por servidor (objeto con varias claves: postulaciones, modActions, ticketsCategory, ticketsRole)
+// Compatible con el formato viejo, donde config[guildId] era directamente el ID del canal de postulaciones.
+function getGuildConfig(guildId) {
+    const config = obtenerConfig();
+    let entry = config[guildId];
+    if (!entry || typeof entry === 'string') {
+        entry = { postulaciones: entry || null };
+    }
+    return entry;
+}
+function setGuildConfig(guildId, updates) {
+    const config = obtenerConfig();
+    let entry = config[guildId];
+    if (!entry || typeof entry === 'string') {
+        entry = { postulaciones: entry || null };
+    }
+    config[guildId] = { ...entry, ...updates };
+    guardarConfig(config);
+    return config[guildId];
+}
+
+// Los warns se guardan con llave "guildId-userId" para que no se mezclen entre distintos servidores
+function warnKey(guildId, userId) {
+    return `${guildId}-${userId}`;
+}
+
+// Envía una copia del embed de una sanción/moderación al canal configurado con /setup mod-actions
+async function logModeracion(guild, embed, components = []) {
+    const cfg = getGuildConfig(guild.id);
+    if (!cfg.modActions) return;
+    const canal = guild.channels.cache.get(cfg.modActions);
+    if (!canal) return;
+    try { await canal.send({ embeds: [embed], components }); } catch (e) { /* canal borrado o sin permisos, se ignora */ }
+}
+
 // 1. REGISTRO Y DEFINICIÓN COMPLETA DE COMANDOS DE BARRA (SLASH COMMANDS)
 const commands = [
     new SlashCommandBuilder()
@@ -199,6 +234,37 @@ const commands = [
         .addChannelOption(opt => opt.setName('canal').setDescription('Canal de recepción').addChannelTypes(ChannelType.GuildText).setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
+    new SlashCommandBuilder()
+        .setName('setup')
+        .setDescription('Configuración general del servidor')
+        .addSubcommand(sub =>
+            sub.setName('mod-actions')
+               .setDescription('Establece el canal donde se enviará el registro de cada sanción')
+               .addChannelOption(opt => opt.setName('canal').setDescription('Canal de registros de moderación').addChannelTypes(ChannelType.GuildText).setRequired(true))
+        )
+        .addSubcommand(sub =>
+            sub.setName('tickets')
+               .setDescription('Establece la categoría donde se crearán los tickets de soporte')
+               .addChannelOption(opt => opt.setName('categoria').setDescription('Categoría de tickets').addChannelTypes(ChannelType.GuildCategory).setRequired(true))
+        )
+        .addSubcommand(sub =>
+            sub.setName('apelaciones')
+               .setDescription('Establece el enlace del servidor de apelaciones (se usa solo en /ban)')
+               .addStringOption(opt => opt.setName('enlace').setDescription('Enlace de invitación de Discord').setRequired(true))
+        )
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+    new SlashCommandBuilder()
+        .setName('rol-soporte')
+        .setDescription('Establece el rol de Staff que se mencionará al abrirse un ticket')
+        .addRoleOption(opt => opt.setName('rol').setDescription('Rol de soporte').setRequired(true))
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+    new SlashCommandBuilder()
+        .setName('panel-tickets')
+        .setDescription('Envía el panel de soporte con el botón para abrir tickets en este canal')
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -241,6 +307,7 @@ client.on('interactionCreate', async interaction => {
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
+            await logModeracion(guild, embed);
             return interaction.reply({ embeds: [embed] });
         } catch (error) {
             console.error('Error en /kick:', error);
@@ -253,21 +320,29 @@ client.on('interactionCreate', async interaction => {
         if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
         if (!usuario.bannable) return interaction.reply({ content: '❌ Operación denegada: El miembro posee inmunidad o un rol superior.', ephemeral: true });
 
+        const cfgBan = getGuildConfig(guild.id);
+        const filaApelacion = cfgBan.apelacionLink ? [new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setLabel('Apelar Sanción').setEmoji('📨').setStyle(ButtonStyle.Link).setURL(cfgBan.apelacionLink)
+        )] : [];
+
+        const embed = new EmbedBuilder()
+            .setTitle('🔨 Miembro Baneado')
+            .setColor('#ED4245')
+            .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
+            .addFields(
+                { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
+                { name: 'Moderador', value: `${user.username}`, inline: true },
+                { name: 'Razón', value: razon, inline: false }
+            )
+            .setFooter({ text: 'CPU v2' })
+            .setTimestamp();
+
+        // Se avisa por MD ANTES de banear (una vez baneado, ya no comparte servidor con el bot)
+        try { await usuario.send({ embeds: [embed], components: filaApelacion }); } catch (e) { /* el usuario tiene los MDs cerrados, se ignora */ }
+
         try {
             await guild.members.ban(usuario.id, { reason: razon });
-
-            const embed = new EmbedBuilder()
-                .setTitle('🔨 Miembro Baneado')
-                .setColor('#ED4245')
-                .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
-                .addFields(
-                    { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
-                    { name: 'Moderador', value: `${user.username}`, inline: true },
-                    { name: 'Razón', value: razon, inline: false }
-                )
-                .setFooter({ text: 'CPU v2' })
-                .setTimestamp();
-
+            await logModeracion(guild, embed, filaApelacion);
             return interaction.reply({ embeds: [embed] });
         } catch (error) {
             console.error('Error en /ban:', error);
@@ -291,6 +366,7 @@ client.on('interactionCreate', async interaction => {
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
+            await logModeracion(guild, embed);
             return interaction.reply({ embeds: [embed] });
         } catch (error) {
             return interaction.reply({ content: '❌ Error: La ID provista no coincide con ningún baneo activo.', ephemeral: true });
@@ -319,6 +395,7 @@ client.on('interactionCreate', async interaction => {
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
+            await logModeracion(guild, embed);
             return interaction.reply({ embeds: [embed] });
         } catch (error) {
             console.error('Error en /mute:', error);
@@ -344,6 +421,7 @@ client.on('interactionCreate', async interaction => {
             .setFooter({ text: 'CPU v2' })
             .setTimestamp();
 
+        await logModeracion(guild, embed);
         return interaction.reply({ embeds: [embed] });
     }
 
@@ -360,16 +438,16 @@ client.on('interactionCreate', async interaction => {
                 listaWarns = {};
             }
 
-            if (!listaWarns[usuario.id]) listaWarns[usuario.id] = [];
+            if (!listaWarns[warnKey(guild.id, usuario.id)]) listaWarns[warnKey(guild.id, usuario.id)] = [];
 
-            listaWarns[usuario.id].push({
+            listaWarns[warnKey(guild.id, usuario.id)].push({
                 moderador: user.tag,
                 razon: razon,
                 fecha: new Date().toLocaleDateString()
             });
 
             fs.writeFileSync(ARCHIVO_WARNS, JSON.stringify(listaWarns, null, 2), 'utf8');
-            const totalWarns = listaWarns[usuario.id].length;
+            const totalWarns = listaWarns[warnKey(guild.id, usuario.id)].length;
 
             const embed = new EmbedBuilder()
                 .setTitle('⚠️ Miembro Advertido')
@@ -383,6 +461,7 @@ client.on('interactionCreate', async interaction => {
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
+            await logModeracion(guild, embed);
             return interaction.reply({ embeds: [embed] });
         } catch (error) {
             console.error('Error en /warn:', error);
@@ -403,7 +482,7 @@ client.on('interactionCreate', async interaction => {
         }
 
         if (sub === 'view') {
-            const usuarioWarns = listaWarns[usuario.id] || [];
+            const usuarioWarns = listaWarns[warnKey(guild.id, usuario.id)] || [];
             const embed = new EmbedBuilder()
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .setTimestamp();
@@ -436,11 +515,11 @@ client.on('interactionCreate', async interaction => {
         }
 
         if (sub === 'clear') {
-            if (!listaWarns[usuario.id] || listaWarns[usuario.id].length === 0) {
+            if (!listaWarns[warnKey(guild.id, usuario.id)] || listaWarns[warnKey(guild.id, usuario.id)].length === 0) {
                 return interaction.reply({ content: `ℹ️ **${usuario.user.username}** ya no tiene advertencias registradas.`, ephemeral: true });
             }
 
-            delete listaWarns[usuario.id];
+            delete listaWarns[warnKey(guild.id, usuario.id)];
             fs.writeFileSync(ARCHIVO_WARNS, JSON.stringify(listaWarns, null, 2), 'utf8');
 
             const embed = new EmbedBuilder()
@@ -626,9 +705,7 @@ client.on('interactionCreate', async interaction => {
     // COMANDO SET-CANAL-POSTULACIONES
     if (commandName === 'set-canal-postulaciones') {
         const canalTexto = options.getChannel('canal');
-        const config = obtenerConfig();
-        config[guild.id] = canalTexto.id;
-        guardarConfig(config);
+        setGuildConfig(guild.id, { postulaciones: canalTexto.id });
 
         const embed = new EmbedBuilder()
             .setTitle('⚙️ Canal Configurado')
@@ -640,10 +717,96 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
+    // COMANDO SETUP (MOD-ACTIONS / TICKETS)
+    if (commandName === 'setup') {
+        const sub = options.getSubcommand();
+
+        if (sub === 'mod-actions') {
+            const canal = options.getChannel('canal');
+            setGuildConfig(guild.id, { modActions: canal.id });
+
+            const embed = new EmbedBuilder()
+                .setTitle('⚙️ Registro de Moderación Configurado')
+                .setColor('#57F287')
+                .addFields({ name: 'Canal de Registros', value: `<#${canal.id}>` })
+                .setFooter({ text: 'CPU v2' })
+                .setTimestamp();
+
+            return interaction.reply({ embeds: [embed], ephemeral: true });
+        }
+
+        if (sub === 'tickets') {
+            const categoria = options.getChannel('categoria');
+            setGuildConfig(guild.id, { ticketsCategory: categoria.id });
+
+            const embed = new EmbedBuilder()
+                .setTitle('⚙️ Categoría de Tickets Configurada')
+                .setColor('#57F287')
+                .addFields({ name: 'Categoría', value: `${categoria.name}` })
+                .setFooter({ text: 'CPU v2' })
+                .setTimestamp();
+
+            return interaction.reply({ embeds: [embed], ephemeral: true });
+        }
+
+        if (sub === 'apelaciones') {
+            const enlace = options.getString('enlace');
+            if (!/^https:\/\/(discord\.gg|discord\.com\/invite)\//.test(enlace)) {
+                return interaction.reply({ content: '⚠️ Ese no parece un enlace de invitación válido de Discord (debe empezar con https://discord.gg/ o https://discord.com/invite/).', ephemeral: true });
+            }
+            setGuildConfig(guild.id, { apelacionLink: enlace });
+
+            const embed = new EmbedBuilder()
+                .setTitle('⚙️ Enlace de Apelaciones Configurado')
+                .setColor('#57F287')
+                .addFields({ name: 'Servidor de Apelaciones', value: enlace })
+                .setFooter({ text: 'CPU v2' })
+                .setTimestamp();
+
+            return interaction.reply({ embeds: [embed], ephemeral: true });
+        }
+    }
+
+    // COMANDO ROL-SOPORTE
+    if (commandName === 'rol-soporte') {
+        const rol = options.getRole('rol');
+        setGuildConfig(guild.id, { ticketsRole: rol.id });
+
+        const embed = new EmbedBuilder()
+            .setTitle('⚙️ Rol de Soporte Configurado')
+            .setColor('#57F287')
+            .addFields({ name: 'Rol Mencionado en Tickets', value: `<@&${rol.id}>` })
+            .setFooter({ text: 'CPU v2' })
+            .setTimestamp();
+
+        return interaction.reply({ embeds: [embed], ephemeral: true });
+    }
+
+    // COMANDO PANEL-TICKETS
+    if (commandName === 'panel-tickets') {
+        const cfg = getGuildConfig(guild.id);
+        if (!cfg.ticketsCategory) {
+            return interaction.reply({ content: '⚠️ Primero configura la categoría con `/setup tickets`.', ephemeral: true });
+        }
+
+        const embedPanel = new EmbedBuilder()
+            .setTitle('🎫 Soporte al Miembro')
+            .setColor('#5865F2')
+            .setDescription('¿Necesitas ayuda o tienes una duda? Presiona el botón para abrir un ticket privado con el Staff.')
+            .setFooter({ text: 'CPU v2' })
+            .setTimestamp();
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('abrir_ticket').setLabel('Abrir Ticket').setEmoji('🎫').setStyle(ButtonStyle.Primary)
+        );
+
+        await channel.send({ embeds: [embedPanel], components: [row] });
+        return interaction.reply({ content: '✅ Panel de tickets enviado.', ephemeral: true });
+    }
+
     // COMANDO POSTULARSE
     if (commandName === 'postularse') {
-        const config = obtenerConfig();
-        const canalId = config[guild.id];
+        const canalId = getGuildConfig(guild.id).postulaciones;
 
         if (!canalId) {
             return interaction.reply({ 
@@ -893,6 +1056,118 @@ client.on('messageCreate', async message => {
         } catch (e) {
             return message.reply({ content: '❌ No se pudo desbloquear el canal.' });
         }
+    }
+});
+
+// 4. SISTEMA DE TICKETS (ABRIR / TOMAR / CERRAR)
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isButton()) return;
+
+    const { customId, guild, member, channel } = interaction;
+    if (!guild) return;
+
+    // ABRIR TICKET
+    if (customId === 'abrir_ticket') {
+        const cfg = getGuildConfig(guild.id);
+        if (!cfg.ticketsCategory) {
+            return interaction.reply({ content: '⚠️ El sistema de tickets no ha sido configurado. Pide a un administrador usar `/setup tickets`.', ephemeral: true });
+        }
+
+        const categoria = guild.channels.cache.get(cfg.ticketsCategory);
+        if (!categoria) {
+            return interaction.reply({ content: '⚠️ La categoría configurada ya no existe. Pide a un administrador reconfigurarla con `/setup tickets`.', ephemeral: true });
+        }
+
+        // Evitar que un mismo usuario tenga varios tickets abiertos a la vez
+        const ticketExistente = categoria.children.cache.find(c => c.topic === `ticket-owner:${member.id}`);
+        if (ticketExistente) {
+            return interaction.reply({ content: `⚠️ Ya tienes un ticket abierto: <#${ticketExistente.id}>`, ephemeral: true });
+        }
+
+        await interaction.deferReply({ ephemeral: true });
+
+        const nombreBase = member.user.username.toLowerCase().replace(/[^a-z0-9]/g, '') || member.id;
+        const overwrites = [
+            { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+            { id: member.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+            { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ReadMessageHistory] }
+        ];
+        if (cfg.ticketsRole) {
+            overwrites.push({ id: cfg.ticketsRole, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
+        }
+
+        let canalTicket;
+        try {
+            canalTicket = await guild.channels.create({
+                name: `ticket-${nombreBase}`,
+                type: ChannelType.GuildText,
+                parent: categoria.id,
+                topic: `ticket-owner:${member.id}`,
+                permissionOverwrites: overwrites
+            });
+        } catch (error) {
+            console.error('Error al crear canal de ticket:', error);
+            return interaction.editReply({ content: '❌ No pude crear el canal del ticket. Revisa mis permisos de Gestionar Canales.' });
+        }
+
+        const embedTicket = new EmbedBuilder()
+            .setTitle('🎫 Ticket de Soporte')
+            .setColor('#5865F2')
+            .addFields(
+                { name: 'Usuario', value: `${member.user.username}`, inline: true },
+                { name: 'Atendido por', value: 'Nadie aún', inline: true },
+                { name: 'Instrucciones', value: 'Describe tu duda o problema con detalle. El Staff te atenderá en breve.', inline: false }
+            )
+            .setFooter({ text: 'CPU v2' })
+            .setTimestamp();
+
+        const rowTicket = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('tomar_ticket').setLabel('Tomar Ticket').setEmoji('🖐️').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId('cerrar_ticket').setLabel('Cerrar Ticket').setEmoji('🔒').setStyle(ButtonStyle.Danger)
+        );
+
+        const mencionStaff = cfg.ticketsRole ? `<@&${cfg.ticketsRole}>` : '';
+        await canalTicket.send({ content: `${mencionStaff} <@${member.id}>`.trim(), embeds: [embedTicket], components: [rowTicket] });
+
+        return interaction.editReply({ content: `✅ Tu ticket fue creado: <#${canalTicket.id}>` });
+    }
+
+    // TOMAR TICKET
+    if (customId === 'tomar_ticket') {
+        const cfg = getGuildConfig(guild.id);
+        const esStaff = (cfg.ticketsRole && member.roles.cache.has(cfg.ticketsRole)) || member.permissions.has(PermissionFlagsBits.ManageChannels);
+        if (!esStaff) {
+            return interaction.reply({ content: '❌ No tienes permiso para tomar este ticket.', ephemeral: true });
+        }
+
+        const topic = channel.topic || '';
+        const ownerId = topic.startsWith('ticket-owner:') ? topic.split(':')[1] : null;
+
+        try {
+            const mensajePanel = await channel.messages.fetch(interaction.message.id);
+            const embedActualizado = EmbedBuilder.from(mensajePanel.embeds[0]).spliceFields(1, 1, { name: 'Atendido por', value: `${member.user.username}`, inline: true });
+            await interaction.update({ embeds: [embedActualizado] });
+        } catch (e) { /* si falla la edición del embed, no es crítico */ }
+
+        return channel.send({ content: `🖐️ **${member.user.username}** ha tomado este ticket${ownerId ? ` y atenderá a <@${ownerId}>` : ''}.` });
+    }
+
+    // CERRAR TICKET
+    if (customId === 'cerrar_ticket') {
+        const cfg = getGuildConfig(guild.id);
+        const topic = channel.topic || '';
+        const ownerId = topic.startsWith('ticket-owner:') ? topic.split(':')[1] : null;
+        const esDueño = ownerId === member.id;
+        const esStaff = (cfg.ticketsRole && member.roles.cache.has(cfg.ticketsRole)) || member.permissions.has(PermissionFlagsBits.ManageChannels);
+
+        if (!esDueño && !esStaff) {
+            return interaction.reply({ content: '❌ No tienes permiso para cerrar este ticket.', ephemeral: true });
+        }
+
+        await interaction.reply({ content: `🔒 Ticket cerrado por **${member.user.username}**. Este canal se eliminará en 5 segundos.` });
+        setTimeout(() => {
+            channel.delete().catch(() => {});
+        }, 5000);
     }
 });
 
