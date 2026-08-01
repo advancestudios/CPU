@@ -62,7 +62,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-    res.send('🤖 CPU v2 - El Cerebro Operativo de tu Servidor está Online.');
+    res.send('🤖 CPU v2 - En Linea');
 });
 
 app.listen(PORT, () => {
@@ -126,7 +126,7 @@ const commands = [
 
     new SlashCommandBuilder()
         .setName('ban')
-        .setDescription('Banea permanentemente a un miembro')
+        .setDescription('Banea a un miembro del Servidor')
         .addUserOption(opt => opt.setName('usuario').setDescription('El miembro a banear').setRequired(true))
         .addStringOption(opt => opt.setName('razon').setDescription('Motivo detallado'))
         .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
@@ -229,7 +229,7 @@ const commands = [
         .setDescription('Inicia tu proceso de postulación mediante MD'),
 
     new SlashCommandBuilder()
-        .setName('set-canal-postulaciones')
+        .setName('set canal postulaciones')
         .setDescription('Configura el canal para recibir postulaciones')
         .addChannelOption(opt => opt.setName('canal').setDescription('Canal de recepción').addChannelTypes(ChannelType.GuildText).setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
@@ -238,7 +238,7 @@ const commands = [
         .setName('setup')
         .setDescription('Configuración general del servidor')
         .addSubcommand(sub =>
-            sub.setName('mod-actions')
+            sub.setName('mod actions')
                .setDescription('Establece el canal donde se enviará el registro de cada sanción')
                .addChannelOption(opt => opt.setName('canal').setDescription('Canal de registros de moderación').addChannelTypes(ChannelType.GuildText).setRequired(true))
         )
@@ -255,13 +255,13 @@ const commands = [
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     new SlashCommandBuilder()
-        .setName('rol-soporte')
+        .setName('setup rol soporte')
         .setDescription('Establece el rol de Staff que se mencionará al abrirse un ticket')
         .addRoleOption(opt => opt.setName('rol').setDescription('Rol de soporte').setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     new SlashCommandBuilder()
-        .setName('panel-tickets')
+        .setName('setup panel tickets')
         .setDescription('Envía el panel de soporte con el botón para abrir tickets en este canal')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
@@ -702,8 +702,8 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
-    // COMANDO SET-CANAL-POSTULACIONES
-    if (commandName === 'set-canal-postulaciones') {
+    // COMANDO SET CANAL POSTULACIONES
+    if (commandName === 'set canal postulaciones') {
         const canalTexto = options.getChannel('canal');
         setGuildConfig(guild.id, { postulaciones: canalTexto.id });
 
@@ -717,11 +717,11 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
-    // COMANDO SETUP (MOD-ACTIONS / TICKETS)
+    // COMANDO SETUP (MOD ACTIONS / TICKETS)
     if (commandName === 'setup') {
         const sub = options.getSubcommand();
 
-        if (sub === 'mod-actions') {
+        if (sub === 'mod actions') {
             const canal = options.getChannel('canal');
             setGuildConfig(guild.id, { modActions: canal.id });
 
@@ -767,8 +767,8 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // COMANDO ROL-SOPORTE
-    if (commandName === 'rol-soporte') {
+    // COMANDO ROL SOPORTE
+    if (commandName === 'rol soporte') {
         const rol = options.getRole('rol');
         setGuildConfig(guild.id, { ticketsRole: rol.id });
 
@@ -782,8 +782,8 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
-    // COMANDO PANEL-TICKETS
-    if (commandName === 'panel-tickets') {
+    // COMANDO PANEL TICKETS
+    if (commandName === 'panel tickets') {
         const cfg = getGuildConfig(guild.id);
         if (!cfg.ticketsCategory) {
             return interaction.reply({ content: '⚠️ Primero configura la categoría con `/setup tickets`.', ephemeral: true });
@@ -851,10 +851,10 @@ client.on('interactionCreate', async interaction => {
                     // El bot las envía en el mismo orden en que aparecen.
                     // ================================================
                     const preguntas = [
-                        '1️⃣ ¿Qué edad tienes y cuál es tu país de residencia?',
+                        '1️⃣ ¿Qué edad tienes? (Requisitos: +15)',
                         '2️⃣ ¿Tienes experiencia previa como Moderador o Staff?',
-                        '3️⃣ ¿Cuántas horas diarias podrías dedicar al servidor?',
-                        '4️⃣ ¿Cómo reaccionarías si presencias una discusión subida de tono?'
+                        '3️⃣ ¿Cuántas horas diarias podrías dedicar?',
+                        '4️⃣ Prueba: ¿Que harias al ver una discusion?'
                     ];
                     // ================================================
                     // FIN PREGUNTAS DE POSTULACIÓN
@@ -956,7 +956,7 @@ client.on('messageCreate', async message => {
                 '`/userinfo` — Información de un miembro',
                 '`/cmdcheck` — Verifica los permisos de un miembro',
                 '`/postularse` — Inicia tu proceso de postulación',
-                '`/set-canal-postulaciones` — Configura el canal de postulaciones'
+                '`/set canal postulaciones` — Configura el canal de postulaciones'
             ],
             'Generales (Prefijo ;)': [
                 '`;ping` — Verifica la latencia del bot',
