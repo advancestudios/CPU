@@ -229,7 +229,7 @@ const commands = [
         .setDescription('Inicia tu proceso de postulación mediante MD'),
 
     new SlashCommandBuilder()
-        .setName('set canal-postulaciones')
+        .setName('set-canal-postulaciones')
         .setDescription('Configura el canal para recibir postulaciones')
         .addChannelOption(opt => opt.setName('canal').setDescription('Canal de recepción').addChannelTypes(ChannelType.GuildText).setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
