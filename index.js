@@ -238,7 +238,7 @@ const commands = [
         .setName('setup')
         .setDescription('Configuración general del servidor')
         .addSubcommand(sub =>
-            sub.setName('mod actions')
+            sub.setName('mod-actions')
                .setDescription('Establece el canal donde se enviará el registro de cada sanción')
                .addChannelOption(opt => opt.setName('canal').setDescription('Canal de registros de moderación').addChannelTypes(ChannelType.GuildText).setRequired(true))
         )
@@ -255,13 +255,13 @@ const commands = [
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     new SlashCommandBuilder()
-        .setName('setup rol soporte')
+        .setName('setup-rol-soporte')
         .setDescription('Establece el rol de Staff que se mencionará al abrirse un ticket')
         .addRoleOption(opt => opt.setName('rol').setDescription('Rol de soporte').setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     new SlashCommandBuilder()
-        .setName('setup panel tickets')
+        .setName('setup-panel-tickets')
         .setDescription('Envía el panel de soporte con el botón para abrir tickets en este canal')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
