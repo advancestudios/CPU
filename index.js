@@ -229,7 +229,7 @@ const commands = [
         .setDescription('Inicia tu proceso de postulación mediante MD'),
 
     new SlashCommandBuilder()
-        .setName('set-canal-postulaciones')
+        .setName('set canal-postulaciones')
         .setDescription('Configura el canal para recibir postulaciones')
         .addChannelOption(opt => opt.setName('canal').setDescription('Canal de recepción').addChannelTypes(ChannelType.GuildText).setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
@@ -255,7 +255,7 @@ const commands = [
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     new SlashCommandBuilder()
-        .setName('setup-rol-soporte')
+        .setName('setup rol-soporte')
         .setDescription('Establece el rol de Staff que se mencionará al abrirse un ticket')
         .addRoleOption(opt => opt.setName('rol').setDescription('Rol de soporte').setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
