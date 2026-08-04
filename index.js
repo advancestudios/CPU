@@ -768,7 +768,7 @@ client.on('interactionCreate', async interaction => {
     }
 
     // COMANDO ROL SOPORTE
-    if (commandName === 'rol-soporte') {
+    if (commandName === 'setup-rol-soporte') {
         const rol = options.getRole('rol');
         setGuildConfig(guild.id, { ticketsRole: rol.id });
 
@@ -783,7 +783,7 @@ client.on('interactionCreate', async interaction => {
     }
 
     // COMANDO PANEL TICKETS
-    if (commandName === 'panel-tickets') {
+    if (commandName === 'setup-panel-tickets') {
         const cfg = getGuildConfig(guild.id);
         if (!cfg.ticketsCategory) {
             return interaction.reply({ content: '⚠️ Primero configura la categoría con `/setup tickets`.', ephemeral: true });
