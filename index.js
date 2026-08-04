@@ -215,7 +215,7 @@ const commands = [
     new SlashCommandBuilder()
         .setName('clear')
         .setDescription('Limpia mensajes masivamente')
-        .addIntegerOption(opt => opt.setName('cantidad').setDescription('Cantidad (1-100)').setRequired(true).setMinValue(1).setMaxValue(100))
+        .addIntegerOption(opt => opt.setName('cantidad').setDescription('Cantidad (1-10000)').setRequired(true).setMinValue(1).setMaxValue(10000))
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
     new SlashCommandBuilder()
@@ -703,7 +703,7 @@ client.on('interactionCreate', async interaction => {
     }
 
     // COMANDO SET CANAL POSTULACIONES
-    if (commandName === 'set canal postulaciones') {
+    if (commandName === 'set-canal-postulaciones') {
         const canalTexto = options.getChannel('canal');
         setGuildConfig(guild.id, { postulaciones: canalTexto.id });
 
@@ -721,7 +721,7 @@ client.on('interactionCreate', async interaction => {
     if (commandName === 'setup') {
         const sub = options.getSubcommand();
 
-        if (sub === 'mod actions') {
+        if (sub === 'mod-actions') {
             const canal = options.getChannel('canal');
             setGuildConfig(guild.id, { modActions: canal.id });
 
@@ -768,7 +768,7 @@ client.on('interactionCreate', async interaction => {
     }
 
     // COMANDO ROL SOPORTE
-    if (commandName === 'rol soporte') {
+    if (commandName === 'rol-soporte') {
         const rol = options.getRole('rol');
         setGuildConfig(guild.id, { ticketsRole: rol.id });
 
@@ -783,7 +783,7 @@ client.on('interactionCreate', async interaction => {
     }
 
     // COMANDO PANEL TICKETS
-    if (commandName === 'panel tickets') {
+    if (commandName === 'panel-tickets') {
         const cfg = getGuildConfig(guild.id);
         if (!cfg.ticketsCategory) {
             return interaction.reply({ content: '⚠️ Primero configura la categoría con `/setup tickets`.', ephemeral: true });
