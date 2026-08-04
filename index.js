@@ -751,8 +751,8 @@ client.on('interactionCreate', async interaction => {
 
         if (sub === 'apelaciones') {
             const enlace = options.getString('enlace');
-            if (!/^https:\/\/(discord\.gg|discord\.com\/invite)\//.test(enlace)) {
-                return interaction.reply({ content: '⚠️ Ese no parece un enlace de invitación válido de Discord (debe empezar con https://discord.gg/ o https://discord.com/invite/).', ephemeral: true });
+            if (!/^https?:\/\/.+/.test(enlace)) {
+                return interaction.reply({ content: '⚠️ Ese no parece un enlace válido (debe empezar con http:// o https://).', ephemeral: true });
             }
             setGuildConfig(guild.id, { apelacionLink: enlace });
 
