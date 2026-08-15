@@ -115,6 +115,75 @@ async function logModeracion(guild, embed, components = []) {
     try { await canal.send({ embeds: [embed], components }); } catch (e) { /* canal borrado o sin permisos, se ignora */ }
 }
 
+// Crea el canal de ticket para "member". abiertoPor es quien lo originó (el mismo usuario si usó el botón, o un Staff si usó /open).
+// Devuelve { ok: true, channel } o { ok: false, motivo }.
+async function crearTicket(guild, member, abiertoPor) {
+    const cfg = getGuildConfig(guild.id);
+    if (!cfg.ticketsCategory) {
+        return { ok: false, motivo: '⚠️ El sistema de tickets no ha sido configurado. Pide a un administrador usar `/setup tickets`.' };
+    }
+
+    const categoria = guild.channels.cache.get(cfg.ticketsCategory);
+    if (!categoria) {
+        return { ok: false, motivo: '⚠️ La categoría configurada ya no existe. Pide a un administrador reconfigurarla con `/setup tickets`.' };
+    }
+
+    const ticketExistente = categoria.children.cache.find(c => c.topic === `ticket-owner:${member.id}`);
+    if (ticketExistente) {
+        return { ok: false, motivo: `⚠️ Ese usuario ya tiene un ticket abierto: <#${ticketExistente.id}>`, canalExistente: ticketExistente };
+    }
+
+    const nombreBase = member.user.username.toLowerCase().replace(/[^a-z0-9]/g, '') || member.id;
+    const overwrites = [
+        { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+        { id: member.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+        { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ReadMessageHistory] }
+    ];
+    if (cfg.ticketsRole) {
+        overwrites.push({ id: cfg.ticketsRole, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
+    }
+
+    let canalTicket;
+    try {
+        canalTicket = await guild.channels.create({
+            name: `ticket-${nombreBase}`,
+            type: ChannelType.GuildText,
+            parent: categoria.id,
+            topic: `ticket-owner:${member.id}`,
+            permissionOverwrites: overwrites
+        });
+    } catch (error) {
+        console.error('Error al crear canal de ticket:', error);
+        return { ok: false, motivo: '❌ No pude crear el canal del ticket. Revisa mis permisos de Gestionar Canales.' };
+    }
+
+    const campos = [
+        { name: 'Usuario', value: `${member.user.username}`, inline: true },
+        { name: 'Atendido por', value: 'Nadie aún', inline: true }
+    ];
+    if (abiertoPor && abiertoPor.id !== member.id) {
+        campos.push({ name: 'Abierto por Staff', value: `${abiertoPor.username}`, inline: true });
+    }
+    campos.push({ name: 'Instrucciones', value: 'Describe tu duda o problema con detalle. El Staff te atenderá en breve.', inline: false });
+
+    const embedTicket = new EmbedBuilder()
+        .setTitle('🎫 Ticket de Soporte')
+        .setColor('#5865F2')
+        .addFields(...campos)
+        .setFooter({ text: 'CPU v2' })
+        .setTimestamp();
+
+    const rowTicket = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('tomar_ticket').setLabel('Tomar Ticket').setEmoji('🖐️').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('cerrar_ticket').setLabel('Cerrar Ticket').setEmoji('🔒').setStyle(ButtonStyle.Danger)
+    );
+
+    const mencionStaff = cfg.ticketsRole ? `<@&${cfg.ticketsRole}>` : '';
+    await canalTicket.send({ content: `${mencionStaff} <@${member.id}>`.trim(), embeds: [embedTicket], components: [rowTicket] });
+
+    return { ok: true, channel: canalTicket };
+}
+
 // 1. REGISTRO Y DEFINICIÓN COMPLETA DE COMANDOS DE BARRA (SLASH COMMANDS)
 const commands = [
     new SlashCommandBuilder()
@@ -264,6 +333,11 @@ const commands = [
         .setName('setup-panel-tickets')
         .setDescription('Envía el panel de soporte con el botón para abrir tickets en este canal')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+    new SlashCommandBuilder()
+        .setName('open')
+        .setDescription('Abre un ticket de soporte a nombre de otro usuario (uso del Staff)')
+        .addUserOption(opt => opt.setName('usuario').setDescription('Usuario al que se le abrirá el ticket').setRequired(true)),
 
 ].map(cmd => cmd.toJSON());
 
@@ -804,6 +878,29 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ content: '✅ Panel de tickets enviado.', ephemeral: true });
     }
 
+    // COMANDO OPEN (abrir ticket manual a nombre de otro usuario)
+    if (commandName === 'open') {
+        const cfgOpen = getGuildConfig(guild.id);
+        const esStaff = (cfgOpen.ticketsRole && interaction.member.roles.cache.has(cfgOpen.ticketsRole)) || interaction.member.permissions.has(PermissionFlagsBits.ManageChannels);
+        if (!esStaff) {
+            return interaction.reply({ content: '❌ No tienes permiso para usar este comando.', ephemeral: true });
+        }
+
+        const miembroObjetivo = options.getMember('usuario');
+        if (!miembroObjetivo) {
+            return interaction.reply({ content: '❌ Ese usuario no se encuentra en el servidor.', ephemeral: true });
+        }
+
+        await interaction.deferReply({ ephemeral: true });
+
+        const resultado = await crearTicket(guild, miembroObjetivo, user);
+        if (!resultado.ok) {
+            return interaction.editReply({ content: resultado.motivo });
+        }
+
+        return interaction.editReply({ content: `✅ Ticket abierto para **${miembroObjetivo.user.username}**: <#${resultado.channel.id}>` });
+    }
+
     // COMANDO POSTULARSE
     if (commandName === 'postularse') {
         const canalId = getGuildConfig(guild.id).postulaciones;
@@ -1068,68 +1165,14 @@ client.on('interactionCreate', async interaction => {
 
     // ABRIR TICKET
     if (customId === 'abrir_ticket') {
-        const cfg = getGuildConfig(guild.id);
-        if (!cfg.ticketsCategory) {
-            return interaction.reply({ content: '⚠️ El sistema de tickets no ha sido configurado. Pide a un administrador usar `/setup tickets`.', ephemeral: true });
-        }
-
-        const categoria = guild.channels.cache.get(cfg.ticketsCategory);
-        if (!categoria) {
-            return interaction.reply({ content: '⚠️ La categoría configurada ya no existe. Pide a un administrador reconfigurarla con `/setup tickets`.', ephemeral: true });
-        }
-
-        // Evitar que un mismo usuario tenga varios tickets abiertos a la vez
-        const ticketExistente = categoria.children.cache.find(c => c.topic === `ticket-owner:${member.id}`);
-        if (ticketExistente) {
-            return interaction.reply({ content: `⚠️ Ya tienes un ticket abierto: <#${ticketExistente.id}>`, ephemeral: true });
-        }
-
         await interaction.deferReply({ ephemeral: true });
 
-        const nombreBase = member.user.username.toLowerCase().replace(/[^a-z0-9]/g, '') || member.id;
-        const overwrites = [
-            { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-            { id: member.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
-            { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ReadMessageHistory] }
-        ];
-        if (cfg.ticketsRole) {
-            overwrites.push({ id: cfg.ticketsRole, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
+        const resultado = await crearTicket(guild, member, member.user);
+        if (!resultado.ok) {
+            return interaction.editReply({ content: resultado.motivo });
         }
 
-        let canalTicket;
-        try {
-            canalTicket = await guild.channels.create({
-                name: `ticket-${nombreBase}`,
-                type: ChannelType.GuildText,
-                parent: categoria.id,
-                topic: `ticket-owner:${member.id}`,
-                permissionOverwrites: overwrites
-            });
-        } catch (error) {
-            console.error('Error al crear canal de ticket:', error);
-            return interaction.editReply({ content: '❌ No pude crear el canal del ticket. Revisa mis permisos de Gestionar Canales.' });
-        }
-
-        const embedTicket = new EmbedBuilder()
-            .setTitle('🎫 Ticket de Soporte')
-            .setColor('#5865F2')
-            .addFields(
-                { name: 'Usuario', value: `${member.user.username}`, inline: true },
-                { name: 'Atendido por', value: 'Nadie aún', inline: true },
-                { name: 'Instrucciones', value: 'Describe tu duda o problema con detalle. El Staff te atenderá en breve.', inline: false }
-            )
-            .setFooter({ text: 'CPU v2' })
-            .setTimestamp();
-
-        const rowTicket = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('tomar_ticket').setLabel('Tomar Ticket').setEmoji('🖐️').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId('cerrar_ticket').setLabel('Cerrar Ticket').setEmoji('🔒').setStyle(ButtonStyle.Danger)
-        );
-
-        const mencionStaff = cfg.ticketsRole ? `<@&${cfg.ticketsRole}>` : '';
-        await canalTicket.send({ content: `${mencionStaff} <@${member.id}>`.trim(), embeds: [embedTicket], components: [rowTicket] });
-
-        return interaction.editReply({ content: `✅ Tu ticket fue creado: <#${canalTicket.id}>` });
+        return interaction.editReply({ content: `✅ Tu ticket fue creado: <#${resultado.channel.id}>` });
     }
 
     // TOMAR TICKET
