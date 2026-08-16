@@ -134,14 +134,25 @@ async function crearTicket(guild, member, abiertoPor) {
     }
 
     const nombreBase = member.user.username.toLowerCase().replace(/[^a-z0-9]/g, '') || member.id;
-    const overwrites = [
-        { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-        { id: member.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
-        { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ReadMessageHistory] }
-    ];
+
+    // Mapa para evitar overwrites duplicados por el mismo id (Discord rechaza duplicados)
+    const overwritesMap = new Map();
+    overwritesMap.set(guild.roles.everyone.id, { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] });
+    overwritesMap.set(member.id, { id: member.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
+    overwritesMap.set(client.user.id, { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ReadMessageHistory] });
+
+    // Acceso automático para cualquier rol con Administrador o Gestionar Canales, aunque no se haya configurado /setup-rol-soporte
+    guild.roles.cache.forEach(rolServidor => {
+        if (rolServidor.permissions.has(PermissionFlagsBits.Administrator) || rolServidor.permissions.has(PermissionFlagsBits.ManageChannels)) {
+            overwritesMap.set(rolServidor.id, { id: rolServidor.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
+        }
+    });
+
     if (cfg.ticketsRole) {
-        overwrites.push({ id: cfg.ticketsRole, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
+        overwritesMap.set(cfg.ticketsRole, { id: cfg.ticketsRole, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
     }
+
+    const overwrites = Array.from(overwritesMap.values());
 
     let canalTicket;
     try {
@@ -157,13 +168,12 @@ async function crearTicket(guild, member, abiertoPor) {
         return { ok: false, motivo: '❌ No pude crear el canal del ticket. Revisa mis permisos de Gestionar Canales.' };
     }
 
+    const abiertoPorStaff = abiertoPor && abiertoPor.id !== member.id;
+
     const campos = [
         { name: 'Usuario', value: `${member.user.username}`, inline: true },
-        { name: 'Atendido por', value: 'Nadie aún', inline: true }
+        { name: 'Atendido por', value: abiertoPorStaff ? `${abiertoPor.username}` : 'Nadie aún', inline: true }
     ];
-    if (abiertoPor && abiertoPor.id !== member.id) {
-        campos.push({ name: 'Abierto por Staff', value: `${abiertoPor.username}`, inline: true });
-    }
     campos.push({ name: 'Instrucciones', value: 'Describe tu duda o problema con detalle. El Staff te atenderá en breve.', inline: false });
 
     const embedTicket = new EmbedBuilder()
@@ -173,10 +183,14 @@ async function crearTicket(guild, member, abiertoPor) {
         .setFooter({ text: 'CPU v2' })
         .setTimestamp();
 
-    const rowTicket = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('tomar_ticket').setLabel('Tomar Ticket').setEmoji('🖐️').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId('cerrar_ticket').setLabel('Cerrar Ticket').setEmoji('🔒').setStyle(ButtonStyle.Danger)
-    );
+    // Si lo abrió el Staff manualmente (/open), ya se sabe quién atiende: se omite el botón de Tomar Ticket
+    const botones = abiertoPorStaff
+        ? [new ButtonBuilder().setCustomId('cerrar_ticket').setLabel('Cerrar Ticket').setEmoji('🔒').setStyle(ButtonStyle.Danger)]
+        : [
+            new ButtonBuilder().setCustomId('tomar_ticket').setLabel('Tomar Ticket').setEmoji('🖐️').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId('cerrar_ticket').setLabel('Cerrar Ticket').setEmoji('🔒').setStyle(ButtonStyle.Danger)
+        ];
+    const rowTicket = new ActionRowBuilder().addComponents(...botones);
 
     const mencionStaff = cfg.ticketsRole ? `<@&${cfg.ticketsRole}>` : '';
     await canalTicket.send({ content: `${mencionStaff} <@${member.id}>`.trim(), embeds: [embedTicket], components: [rowTicket] });
@@ -338,6 +352,13 @@ const commands = [
         .setName('open')
         .setDescription('Abre un ticket de soporte a nombre de otro usuario (uso del Staff)')
         .addUserOption(opt => opt.setName('usuario').setDescription('Usuario al que se le abrirá el ticket').setRequired(true)),
+
+    new SlashCommandBuilder()
+        .setName('s')
+        .setDescription('Envía un mensaje con el bot (uso del Staff)')
+        .addStringOption(opt => opt.setName('mensaje').setDescription('Texto a enviar').setRequired(true))
+        .addChannelOption(opt => opt.setName('canal').setDescription('Canal destino (por defecto, el actual)').addChannelTypes(ChannelType.GuildText).setRequired(false))
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
 ].map(cmd => cmd.toJSON());
 
@@ -901,6 +922,20 @@ client.on('interactionCreate', async interaction => {
         return interaction.editReply({ content: `✅ Ticket abierto para **${miembroObjetivo.user.username}**: <#${resultado.channel.id}>` });
     }
 
+    // COMANDO S (enviar mensaje con el bot)
+    if (commandName === 's') {
+        const mensaje = options.getString('mensaje');
+        const canalDestino = options.getChannel('canal') || channel;
+
+        try {
+            await canalDestino.send({ content: mensaje });
+            return interaction.reply({ content: `✅ Mensaje enviado en <#${canalDestino.id}>.`, ephemeral: true });
+        } catch (error) {
+            console.error('Error en /s:', error);
+            return interaction.reply({ content: '❌ No pude enviar el mensaje. Revisa mis permisos en ese canal.', ephemeral: true });
+        }
+    }
+
     // COMANDO POSTULARSE
     if (commandName === 'postularse') {
         const canalId = getGuildConfig(guild.id).postulaciones;
@@ -1186,10 +1221,19 @@ client.on('interactionCreate', async interaction => {
         const topic = channel.topic || '';
         const ownerId = topic.startsWith('ticket-owner:') ? topic.split(':')[1] : null;
 
+        const mensajePanel = await channel.messages.fetch(interaction.message.id);
+        const campoAtiende = mensajePanel.embeds[0]?.fields?.[1];
+        if (campoAtiende && campoAtiende.value !== 'Nadie aún') {
+            return interaction.reply({ content: `⚠️ Este ticket ya fue tomado por **${campoAtiende.value}**.`, ephemeral: true });
+        }
+
         try {
-            const mensajePanel = await channel.messages.fetch(interaction.message.id);
             const embedActualizado = EmbedBuilder.from(mensajePanel.embeds[0]).spliceFields(1, 1, { name: 'Atendido por', value: `${member.user.username}`, inline: true });
-            await interaction.update({ embeds: [embedActualizado] });
+            // Se deja solo el botón de Cerrar Ticket; ya no se puede volver a reclamar
+            const filaSoloCerrar = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('cerrar_ticket').setLabel('Cerrar Ticket').setEmoji('🔒').setStyle(ButtonStyle.Danger)
+            );
+            await interaction.update({ embeds: [embedActualizado], components: [filaSoloCerrar] });
         } catch (e) { /* si falla la edición del embed, no es crítico */ }
 
         return channel.send({ content: `🖐️ **${member.user.username}** ha tomado este ticket${ownerId ? ` y atenderá a <@${ownerId}>` : ''}.` });
