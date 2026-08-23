@@ -360,6 +360,22 @@ const commands = [
         .addChannelOption(opt => opt.setName('canal').setDescription('Canal destino (por defecto, el actual)').addChannelTypes(ChannelType.GuildText).setRequired(false))
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
+    new SlashCommandBuilder()
+        .setName('softban')
+        .setDescription('Expulsa al usuario y borra sus mensajes recientes, sin banearlo permanentemente')
+        .addUserOption(opt => opt.setName('usuario').setDescription('Usuario a expulsar').setRequired(true))
+        .addStringOption(opt => opt.setName('razon').setDescription('Razón de la expulsión').setRequired(false))
+        .addStringOption(opt => opt.setName('borrar-mensajes').setDescription('Mensajes a eliminar (por defecto, ninguno)').setRequired(false)
+            .addChoices(
+                { name: 'Última 1 hora', value: '3600' },
+                { name: 'Últimas 6 horas', value: '21600' },
+                { name: 'Últimas 12 horas', value: '43200' },
+                { name: 'Último 1 día', value: '86400' },
+                { name: 'Últimos 3 días', value: '259200' },
+                { name: 'Últimos 7 días', value: '604800' }
+            ))
+        .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
+
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -442,6 +458,36 @@ client.on('interactionCreate', async interaction => {
         } catch (error) {
             console.error('Error en /ban:', error);
             return interaction.reply({ content: '❌ Ocurrió un error al intentar banear al miembro.', ephemeral: true });
+        }
+    }
+
+    // COMANDO SOFTBAN
+    if (commandName === 'softban') {
+        if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
+        if (!usuario.bannable) return interaction.reply({ content: '❌ Operación denegada: El miembro posee inmunidad o un rol superior.', ephemeral: true });
+
+        const segundosBorrar = parseInt(options.getString('borrar-mensajes') || '0', 10);
+
+        const embed = new EmbedBuilder()
+            .setTitle('🧹 Miembro Expulsado (Softban)')
+            .setColor('#ED4245')
+            .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
+            .addFields(
+                { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
+                { name: 'Moderador', value: `${user.username}`, inline: true },
+                { name: 'Razón', value: razon, inline: false }
+            )
+            .setFooter({ text: 'CPU v2' })
+            .setTimestamp();
+
+        try {
+            await guild.members.ban(usuario.id, { reason: razon, deleteMessageSeconds: segundosBorrar });
+            await guild.members.unban(usuario.id, 'Softban: se libera el baneo tras limpiar mensajes').catch(() => {});
+            await logModeracion(guild, embed);
+            return interaction.reply({ embeds: [embed] });
+        } catch (error) {
+            console.error('Error en /softban:', error);
+            return interaction.reply({ content: '❌ Ocurrió un error al intentar aplicar el softban.', ephemeral: true });
         }
     }
 
@@ -1218,9 +1264,6 @@ client.on('interactionCreate', async interaction => {
             return interaction.reply({ content: '❌ No tienes permiso para tomar este ticket.', ephemeral: true });
         }
 
-        const topic = channel.topic || '';
-        const ownerId = topic.startsWith('ticket-owner:') ? topic.split(':')[1] : null;
-
         const mensajePanel = await channel.messages.fetch(interaction.message.id);
         const campoAtiende = mensajePanel.embeds[0]?.fields?.[1];
         if (campoAtiende && campoAtiende.value !== 'Nadie aún') {
@@ -1233,10 +1276,11 @@ client.on('interactionCreate', async interaction => {
             const filaSoloCerrar = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('cerrar_ticket').setLabel('Cerrar Ticket').setEmoji('🔒').setStyle(ButtonStyle.Danger)
             );
-            await interaction.update({ embeds: [embedActualizado], components: [filaSoloCerrar] });
-        } catch (e) { /* si falla la edición del embed, no es crítico */ }
-
-        return channel.send({ content: `🖐️ **${member.user.username}** ha tomado este ticket${ownerId ? ` y atenderá a <@${ownerId}>` : ''}.` });
+            return interaction.update({ embeds: [embedActualizado], components: [filaSoloCerrar] });
+        } catch (e) {
+            console.error('Error al tomar ticket:', e);
+            return interaction.reply({ content: '❌ No pude actualizar el ticket.', ephemeral: true });
+        }
     }
 
     // CERRAR TICKET
