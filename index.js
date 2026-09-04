@@ -18,10 +18,11 @@ const {
     SeparatorSpacingSize,
     SectionBuilder,
     ThumbnailBuilder,
-    MessageFlags
+    MessageFlags,
+    ActivityType // <--- Importado para las actividades
 } = require('discord.js');
 const fs = require('fs');
-const path = require('path');
+const path = path = require('path');
 const express = require('express');
 
 // Creador !CPU/@cpu.x
@@ -442,6 +443,22 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 
 client.once('ready', async () => {
     console.log(`🚀 [CPU v2] Núcleo operativo inicializado y activo como ${client.user.tag}`);
+
+    // ================================================
+    // 🌙 CONFIGURACIÓN DE ESTADO Y ACTIVIDAD DEL BOT
+    // ================================================
+    
+    // Cambia el estado (luna amarilla):
+    // Opciones posibles: 'idle' (Inactivo/Luna), 'online' (En línea), 'dnd' (No molestar), 'invisible'
+    client.user.setStatus('idle'); 
+
+    // Cambia la actividad (Texto abajo del bot):
+    client.user.setActivity('Servidores de Discord', { 
+        type: ActivityType.Watching 
+    });
+
+    // ================================================
+
     try {
         await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
         console.log('✅ [CPU v2] Comandos de barra sincronizados de forma global (puede tardar hasta 1 hora en verse).');
