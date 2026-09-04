@@ -923,26 +923,45 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
-    // COMANDO PANEL TICKETS
+    // COMANDO PANEL TICKETS (Reescrito con Components V2)
     if (commandName === 'setup-panel-tickets') {
         const cfg = getGuildConfig(guild.id);
         if (!cfg.ticketsCategory) {
             return interaction.reply({ content: '⚠️ Primero configura la categoría con `/setup tickets`.', ephemeral: true });
         }
 
-        const embedPanel = new EmbedBuilder()
-            .setTitle('🎫 Soporte al Miembro')
-            .setColor('#5865F2')
-            .setDescription('¿Necesitas ayuda o tienes una duda? Presiona el botón para abrir un ticket privado con el Staff.')
-            .setFooter({ text: 'CPU v2' })
-            .setTimestamp();
-
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('abrir_ticket').setLabel('Abrir Ticket').setEmoji('🎫').setStyle(ButtonStyle.Primary)
+        // 1. Botón para abrir ticket
+        const rowBoton = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('abrir_ticket')
+                .setLabel('Abrir Ticket')
+                .setEmoji('🎫')
+                .setStyle(ButtonStyle.Primary)
         );
 
-        await channel.send({ embeds: [embedPanel], components: [row] });
-        return interaction.reply({ content: '✅ Panel de tickets enviado.', ephemeral: true });
+        // 2. Estructura del panel con ContainerBuilder y SeparatorBuilder
+        const panelContainer = new ContainerBuilder()
+            .setAccentColor(0x5865F2) // Color equivalente al azul #5865F2
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent('# 🎫 Soporte al Miembro\n¿Necesitas ayuda o tienes alguna duda con el servidor?')
+            )
+            .addSeparatorComponents(
+                new SeparatorBuilder()
+                    .setSpacing(SeparatorSpacingSize.Large)
+                    .setDivider(true) // Línea separadora visible
+            )
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent('Presiona el botón de abajo para abrir un canal privado directamente con el equipo de Staff.')
+            )
+            .addActionRowComponents(rowBoton);
+
+        // 3. Envío al canal actual con la bandera IsComponentsV2
+        await channel.send({
+            components: [panelContainer],
+            flags: MessageFlags.IsComponentsV2
+        });
+
+        return interaction.reply({ content: '✅ Panel de tickets enviado con éxito.', ephemeral: true });
     }
 
     // COMANDO OPEN (abrir ticket manual a nombre de otro usuario)
