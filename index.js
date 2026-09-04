@@ -24,6 +24,9 @@ const fs = require('fs');
 const path = require('path');
 const express = require('express');
 
+// Creador !CPU/@cpu.x
+// Colaborador KenMyer/@kukumeyers
+
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
