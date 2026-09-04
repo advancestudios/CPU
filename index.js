@@ -11,7 +11,14 @@ const {
     ActionRowBuilder, 
     ButtonBuilder, 
     ButtonStyle, 
-    ChannelType 
+    ChannelType,
+    ContainerBuilder,
+    TextDisplayBuilder,
+    SeparatorBuilder,
+    SeparatorSpacingSize,
+    SectionBuilder,
+    ThumbnailBuilder,
+    MessageFlags
 } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
@@ -106,17 +113,71 @@ function warnKey(guildId, userId) {
     return `${guildId}-${userId}`;
 }
 
+// ================================================
+// 🎨 CONVERSOR A COMPONENTS V2
+// Toma cualquier embed ya armado (título, color, avatar, campos, footer)
+// y lo transforma al formato nuevo con divisores, para que se vea más
+// elegante. El código que arma cada embed no cambia, solo cómo se envía.
+// ================================================
+function embedToContainer(embed) {
+    const data = embed.data || {};
+    const container = new ContainerBuilder();
+    if (typeof data.color === 'number') container.setAccentColor(data.color);
+
+    const partes = [];
+    if (data.title) partes.push(`## ${data.title}`);
+    if (data.description) partes.push(data.description);
+    const textoTitulo = new TextDisplayBuilder().setContent(partes.join('\n') || '\u200b');
+
+    if (data.thumbnail && data.thumbnail.url) {
+        container.addSectionComponents(
+            new SectionBuilder()
+                .addTextDisplayComponents(textoTitulo)
+                .setThumbnailAccessory(new ThumbnailBuilder().setURL(data.thumbnail.url))
+        );
+    } else {
+        container.addTextDisplayComponents(textoTitulo);
+    }
+
+    if (data.fields && data.fields.length) {
+        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+        const textoCampos = data.fields.map(f => `**${f.name}**\n${f.value}`).join('\n\n');
+        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(textoCampos));
+    }
+
+    if (data.footer && data.footer.text) {
+        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false));
+        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${data.footer.text}`));
+    }
+
+    return container;
+}
+
 // Envía una copia del embed de una sanción/moderación al canal configurado con /setup mod-actions
 async function logModeracion(guild, embed, components = []) {
     const cfg = getGuildConfig(guild.id);
     if (!cfg.modActions) return;
     const canal = guild.channels.cache.get(cfg.modActions);
     if (!canal) return;
-    try { await canal.send({ embeds: [embed], components }); } catch (e) { /* canal borrado o sin permisos, se ignora */ }
+    try { await canal.send({ components: [embedToContainer(embed), ...components], flags: MessageFlags.IsComponentsV2 }); } catch (e) { /* canal borrado o sin permisos, se ignora */ }
 }
 
 // Crea el canal de ticket para "member". abiertoPor es quien lo originó (el mismo usuario si usó el botón, o un Staff si usó /open).
 // Devuelve { ok: true, channel } o { ok: false, motivo }.
+// Construye el embed base del ticket (se usa tanto al crearlo como al reclamarlo)
+function construirEmbedTicket(nombreUsuario, atendidoPor) {
+    return new EmbedBuilder()
+        .setTitle('🎫 Ticket de Soporte')
+        .setColor('#5865F2')
+        .addFields(
+            { name: 'Usuario', value: `${nombreUsuario}`, inline: true },
+            { name: 'Atendido por', value: atendidoPor || 'Nadie aún', inline: true },
+            { name: 'Instrucciones', value: 'Describe tu duda o problema con detalle. El Staff te atenderá en breve.', inline: false }
+        )
+        .setFooter({ text: 'CPU v2' })
+        .setTimestamp();
+}
+
 async function crearTicket(guild, member, abiertoPor) {
     const cfg = getGuildConfig(guild.id);
     if (!cfg.ticketsCategory) {
@@ -169,19 +230,7 @@ async function crearTicket(guild, member, abiertoPor) {
     }
 
     const abiertoPorStaff = abiertoPor && abiertoPor.id !== member.id;
-
-    const campos = [
-        { name: 'Usuario', value: `${member.user.username}`, inline: true },
-        { name: 'Atendido por', value: abiertoPorStaff ? `${abiertoPor.username}` : 'Nadie aún', inline: true }
-    ];
-    campos.push({ name: 'Instrucciones', value: 'Describe tu duda o problema con detalle. El Staff te atenderá en breve.', inline: false });
-
-    const embedTicket = new EmbedBuilder()
-        .setTitle('🎫 Ticket de Soporte')
-        .setColor('#5865F2')
-        .addFields(...campos)
-        .setFooter({ text: 'CPU v2' })
-        .setTimestamp();
+    const embedTicket = construirEmbedTicket(member.user.username, abiertoPorStaff ? abiertoPor.username : null);
 
     // Si lo abrió el Staff manualmente (/open), ya se sabe quién atiende: se omite el botón de Tomar Ticket
     const botones = abiertoPorStaff
@@ -193,7 +242,15 @@ async function crearTicket(guild, member, abiertoPor) {
     const rowTicket = new ActionRowBuilder().addComponents(...botones);
 
     const mencionStaff = cfg.ticketsRole ? `<@&${cfg.ticketsRole}>` : '';
-    await canalTicket.send({ content: `${mencionStaff} <@${member.id}>`.trim(), embeds: [embedTicket], components: [rowTicket] });
+    const textoMencion = `${mencionStaff} <@${member.id}>`.trim();
+    await canalTicket.send({
+        components: [
+            new TextDisplayBuilder().setContent(textoMencion),
+            embedToContainer(embedTicket),
+            rowTicket
+        ],
+        flags: MessageFlags.IsComponentsV2
+    });
 
     return { ok: true, channel: canalTicket };
 }
@@ -419,7 +476,7 @@ client.on('interactionCreate', async interaction => {
                 .setTimestamp();
 
             await logModeracion(guild, embed);
-            return interaction.reply({ embeds: [embed] });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
             console.error('Error en /kick:', error);
             return interaction.reply({ content: '❌ Ocurrió un error al intentar expulsar al miembro.', ephemeral: true });
@@ -449,12 +506,12 @@ client.on('interactionCreate', async interaction => {
             .setTimestamp();
 
         // Se avisa por MD ANTES de banear (una vez baneado, ya no comparte servidor con el bot)
-        try { await usuario.send({ embeds: [embed], components: filaApelacion }); } catch (e) { /* el usuario tiene los MDs cerrados, se ignora */ }
+        try { await usuario.send({ components: [embedToContainer(embed), ...filaApelacion], flags: MessageFlags.IsComponentsV2 }); } catch (e) { /* el usuario tiene los MDs cerrados, se ignora */ }
 
         try {
             await guild.members.ban(usuario.id, { reason: razon });
             await logModeracion(guild, embed, filaApelacion);
-            return interaction.reply({ embeds: [embed] });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
             console.error('Error en /ban:', error);
             return interaction.reply({ content: '❌ Ocurrió un error al intentar banear al miembro.', ephemeral: true });
@@ -484,7 +541,7 @@ client.on('interactionCreate', async interaction => {
             await guild.members.ban(usuario.id, { reason: razon, deleteMessageSeconds: segundosBorrar });
             await guild.members.unban(usuario.id, 'Softban: se libera el baneo tras limpiar mensajes').catch(() => {});
             await logModeracion(guild, embed);
-            return interaction.reply({ embeds: [embed] });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
             console.error('Error en /softban:', error);
             return interaction.reply({ content: '❌ Ocurrió un error al intentar aplicar el softban.', ephemeral: true });
@@ -508,7 +565,7 @@ client.on('interactionCreate', async interaction => {
                 .setTimestamp();
 
             await logModeracion(guild, embed);
-            return interaction.reply({ embeds: [embed] });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
             return interaction.reply({ content: '❌ Error: La ID provista no coincide con ningún baneo activo.', ephemeral: true });
         }
@@ -537,7 +594,7 @@ client.on('interactionCreate', async interaction => {
                 .setTimestamp();
 
             await logModeracion(guild, embed);
-            return interaction.reply({ embeds: [embed] });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
             console.error('Error en /mute:', error);
             return interaction.reply({ content: '❌ Ocurrió un error al intentar silenciar al miembro.', ephemeral: true });
@@ -563,7 +620,7 @@ client.on('interactionCreate', async interaction => {
             .setTimestamp();
 
         await logModeracion(guild, embed);
-        return interaction.reply({ embeds: [embed] });
+        return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
     }
 
     // COMANDO WARN
@@ -603,7 +660,7 @@ client.on('interactionCreate', async interaction => {
                 .setTimestamp();
 
             await logModeracion(guild, embed);
-            return interaction.reply({ embeds: [embed] });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
             console.error('Error en /warn:', error);
             return interaction.reply({ content: '❌ Ocurrió un error al registrar la advertencia.', ephemeral: true });
@@ -635,7 +692,7 @@ client.on('interactionCreate', async interaction => {
                         { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
                         { name: 'Estado', value: 'Sin advertencias', inline: true }
                      );
-                return interaction.reply({ embeds: [embed] });
+                return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
             }
 
             embed.setTitle('📋 Historial de Advertencias')
@@ -652,7 +709,7 @@ client.on('interactionCreate', async interaction => {
                 });
             });
 
-            return interaction.reply({ embeds: [embed] });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         }
 
         if (sub === 'clear') {
@@ -673,7 +730,7 @@ client.on('interactionCreate', async interaction => {
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
-            return interaction.reply({ embeds: [embed] });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         }
     }
 
@@ -702,7 +759,7 @@ client.on('interactionCreate', async interaction => {
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
-            return interaction.reply({ embeds: [embed] });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         }
 
         if (sub === 'remove') {
@@ -720,7 +777,7 @@ client.on('interactionCreate', async interaction => {
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
-            return interaction.reply({ embeds: [embed] });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         }
     }
 
@@ -773,7 +830,7 @@ client.on('interactionCreate', async interaction => {
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
-            return interaction.reply({ embeds: [embed] });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
             return interaction.reply({ content: '❌ Error al modificar el apodo.', ephemeral: true });
         }
@@ -800,7 +857,7 @@ client.on('interactionCreate', async interaction => {
             .setFooter({ text: 'CPU v2' })
             .setTimestamp();
 
-        return interaction.reply({ embeds: [embed] });
+        return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
     }
 
     // COMANDO CMDCHECK (VERIFICADOR DE PERMISOS)
@@ -840,7 +897,7 @@ client.on('interactionCreate', async interaction => {
             .setFooter({ text: 'CPU v2' })
             .setTimestamp();
 
-        return interaction.reply({ embeds: [embed], ephemeral: true });
+        return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
     }
 
     // COMANDO SET CANAL POSTULACIONES
@@ -855,7 +912,7 @@ client.on('interactionCreate', async interaction => {
             .setFooter({ text: 'CPU v2' })
             .setTimestamp();
 
-        return interaction.reply({ embeds: [embed], ephemeral: true });
+        return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
     }
 
     // COMANDO SETUP (MOD ACTIONS / TICKETS)
@@ -873,7 +930,7 @@ client.on('interactionCreate', async interaction => {
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
         }
 
         if (sub === 'tickets') {
@@ -887,7 +944,7 @@ client.on('interactionCreate', async interaction => {
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
         }
 
         if (sub === 'apelaciones') {
@@ -904,7 +961,7 @@ client.on('interactionCreate', async interaction => {
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
         }
     }
 
@@ -920,48 +977,29 @@ client.on('interactionCreate', async interaction => {
             .setFooter({ text: 'CPU v2' })
             .setTimestamp();
 
-        return interaction.reply({ embeds: [embed], ephemeral: true });
+        return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
     }
 
-    // COMANDO PANEL TICKETS (Reescrito con Components V2)
+    // COMANDO PANEL TICKETS
     if (commandName === 'setup-panel-tickets') {
         const cfg = getGuildConfig(guild.id);
         if (!cfg.ticketsCategory) {
             return interaction.reply({ content: '⚠️ Primero configura la categoría con `/setup tickets`.', ephemeral: true });
         }
 
-        // 1. Botón para abrir ticket
-        const rowBoton = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('abrir_ticket')
-                .setLabel('Abrir Ticket')
-                .setEmoji('🎫')
-                .setStyle(ButtonStyle.Primary)
+        const embedPanel = new EmbedBuilder()
+            .setTitle('🎫 Soporte al Miembro')
+            .setColor('#5865F2')
+            .setDescription('¿Necesitas ayuda o tienes una duda? Presiona el botón para abrir un ticket privado con el Staff.')
+            .setFooter({ text: 'CPU v2' })
+            .setTimestamp();
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('abrir_ticket').setLabel('Abrir Ticket').setEmoji('🎫').setStyle(ButtonStyle.Primary)
         );
 
-        // 2. Estructura del panel con ContainerBuilder y SeparatorBuilder
-        const panelContainer = new ContainerBuilder()
-            .setAccentColor(0x5865F2) // Color equivalente al azul #5865F2
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent('# 🎫 Soporte al Miembro\n¿Necesitas ayuda o tienes alguna duda con el servidor?')
-            )
-            .addSeparatorComponents(
-                new SeparatorBuilder()
-                    .setSpacing(SeparatorSpacingSize.Large)
-                    .setDivider(true) // Línea separadora visible
-            )
-            .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent('Presiona el botón de abajo para abrir un canal privado directamente con el equipo de Staff.')
-            )
-            .addActionRowComponents(rowBoton);
-
-        // 3. Envío al canal actual con la bandera IsComponentsV2
-        await channel.send({
-            components: [panelContainer],
-            flags: MessageFlags.IsComponentsV2
-        });
-
-        return interaction.reply({ content: '✅ Panel de tickets enviado con éxito.', ephemeral: true });
+        await channel.send({ components: [embedToContainer(embedPanel), row], flags: MessageFlags.IsComponentsV2 });
+        return interaction.reply({ content: '✅ Panel de tickets enviado.', ephemeral: true });
     }
 
     // COMANDO OPEN (abrir ticket manual a nombre de otro usuario)
@@ -1026,7 +1064,7 @@ client.on('interactionCreate', async interaction => {
             .setTimestamp();
 
         try {
-            const mensajeDM = await user.send({ embeds: [embedMD], components: [row] });
+            const mensajeDM = await user.send({ components: [embedToContainer(embedMD), row], flags: MessageFlags.IsComponentsV2 });
             await interaction.reply({ content: '📬 Te hemos enviado un MD para comenzar tu postulación.', ephemeral: true });
 
             const collector = mensajeDM.createMessageComponentCollector({ time: 60000 });
@@ -1035,12 +1073,12 @@ client.on('interactionCreate', async interaction => {
             collector.on('collect', async i => {
                 respondido = true;
                 if (i.customId === 'cancelar_postulacion') {
-                    await i.update({ content: '❌ Has cancelado la postulación.', embeds: [], components: [] });
+                    await i.update({ components: [new TextDisplayBuilder().setContent('❌ Has cancelado la postulación.')], flags: MessageFlags.IsComponentsV2 });
                     return;
                 }
 
                 if (i.customId === 'iniciar_postulacion') {
-                    await i.update({ content: '📝 **Proceso Iniciado.** Responde a las siguientes preguntas directamente por este chat.', embeds: [], components: [] });
+                    await i.update({ components: [new TextDisplayBuilder().setContent('📝 **Proceso Iniciado.** Responde a las siguientes preguntas directamente por este chat.')], flags: MessageFlags.IsComponentsV2 });
 
                     // ================================================
                     // 📋 PREGUNTAS DE POSTULACIÓN — EDITA AQUÍ
@@ -1091,7 +1129,7 @@ client.on('interactionCreate', async interaction => {
                             .setFooter({ text: 'CPU v2' })
                             .setTimestamp();
 
-                        await canalDestino.send({ embeds: [embedExpediente] });
+                        await canalDestino.send({ components: [embedToContainer(embedExpediente)], flags: MessageFlags.IsComponentsV2 });
                         await dmChannel.send('✅ **¡Postulación enviada con éxito!** Tus respuestas han sido entregadas.');
                     } else {
                         await dmChannel.send('⚠️ Hubo un error al entregar el expediente. Contacta a un administrador.');
@@ -1102,7 +1140,7 @@ client.on('interactionCreate', async interaction => {
             collector.on('end', async () => {
                 if (!respondido) {
                     try {
-                        await mensajeDM.edit({ content: '⏳ El tiempo para responder expiró. Usa `/postularse` de nuevo si deseas continuar.', embeds: [], components: [] });
+                        await mensajeDM.edit({ components: [new TextDisplayBuilder().setContent('⏳ El tiempo para responder expiró. Usa `/postularse` de nuevo si deseas continuar.')], flags: MessageFlags.IsComponentsV2 });
                     } catch (e) { /* el MD pudo haber sido borrado por el usuario, se ignora */ }
                 }
             });
@@ -1153,7 +1191,7 @@ client.on('messageCreate', async message => {
                 '`/userinfo` — Información de un miembro',
                 '`/cmdcheck` — Verifica los permisos de un miembro',
                 '`/postularse` — Inicia tu proceso de postulación',
-                '`/set canal postulaciones` — Configura el canal de postulaciones'
+                '`/set-canal-postulaciones` — Configura el canal de postulaciones'
             ],
             'Generales (Prefijo ;)': [
                 '`;ping` — Verifica la latencia del bot',
@@ -1184,7 +1222,7 @@ client.on('messageCreate', async message => {
             new ButtonBuilder().setCustomId('help_next').setLabel('Siguiente ➡️').setStyle(ButtonStyle.Secondary).setDisabled(i === categorias.length - 1)
         );
 
-        const helpMsg = await message.reply({ embeds: [construirEmbed(pagina)], components: [construirBotones(pagina)] });
+        const helpMsg = await message.reply({ components: [embedToContainer(construirEmbed(pagina)), construirBotones(pagina)], flags: MessageFlags.IsComponentsV2 });
         const collector = helpMsg.createMessageComponentCollector({ time: 120000 });
 
         collector.on('collect', async i => {
@@ -1193,11 +1231,11 @@ client.on('messageCreate', async message => {
             }
             if (i.customId === 'help_next') pagina++;
             if (i.customId === 'help_prev') pagina--;
-            await i.update({ embeds: [construirEmbed(pagina)], components: [construirBotones(pagina)] });
+            await i.update({ components: [embedToContainer(construirEmbed(pagina)), construirBotones(pagina)], flags: MessageFlags.IsComponentsV2 });
         });
 
         collector.on('end', async () => {
-            try { await helpMsg.edit({ components: [] }); } catch (e) { /* el mensaje pudo haber sido borrado */ }
+            try { await helpMsg.edit({ components: [embedToContainer(construirEmbed(pagina))], flags: MessageFlags.IsComponentsV2 }); } catch (e) { /* el mensaje pudo haber sido borrado */ }
         });
         return;
     }
@@ -1211,7 +1249,7 @@ client.on('messageCreate', async message => {
             .addFields({ name: 'Enlace', value: `[Invitar Bot](${inviteURL})` })
             .setFooter({ text: 'CPU v2' })
             .setTimestamp();
-        return message.reply({ embeds: [embed] });
+        return message.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
     }
 
     if (comando === 'serverinvite') {
@@ -1224,7 +1262,7 @@ client.on('messageCreate', async message => {
                 .addFields({ name: 'Enlace', value: invite.url })
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
-            await message.author.send({ embeds: [embed] });
+            await message.author.send({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
             return message.reply({ content: '✅ Te envié la invitación del servidor por MD.' });
         } catch (error) {
             return message.reply({ content: '❌ No se pudo generar o enviar la invitación. Revisa que tenga el permiso "Crear Invitación" y que tus MD estén abiertos.' });
@@ -1283,19 +1321,18 @@ client.on('interactionCreate', async interaction => {
             return interaction.reply({ content: '❌ No tienes permiso para tomar este ticket.', ephemeral: true });
         }
 
-        const mensajePanel = await channel.messages.fetch(interaction.message.id);
-        const campoAtiende = mensajePanel.embeds[0]?.fields?.[1];
-        if (campoAtiende && campoAtiende.value !== 'Nadie aún') {
-            return interaction.reply({ content: `⚠️ Este ticket ya fue tomado por **${campoAtiende.value}**.`, ephemeral: true });
-        }
+        const topic = channel.topic || '';
+        const ownerId = topic.startsWith('ticket-owner:') ? topic.split(':')[1] : null;
+        const ownerMember = ownerId ? await guild.members.fetch(ownerId).catch(() => null) : null;
+        const nombreUsuario = ownerMember ? ownerMember.user.username : 'Usuario';
 
         try {
-            const embedActualizado = EmbedBuilder.from(mensajePanel.embeds[0]).spliceFields(1, 1, { name: 'Atendido por', value: `${member.user.username}`, inline: true });
+            const embedActualizado = construirEmbedTicket(nombreUsuario, member.user.username);
             // Se deja solo el botón de Cerrar Ticket; ya no se puede volver a reclamar
             const filaSoloCerrar = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('cerrar_ticket').setLabel('Cerrar Ticket').setEmoji('🔒').setStyle(ButtonStyle.Danger)
             );
-            return interaction.update({ embeds: [embedActualizado], components: [filaSoloCerrar] });
+            return interaction.update({ components: [embedToContainer(embedActualizado), filaSoloCerrar], flags: MessageFlags.IsComponentsV2 });
         } catch (e) {
             console.error('Error al tomar ticket:', e);
             return interaction.reply({ content: '❌ No pude actualizar el ticket.', ephemeral: true });
