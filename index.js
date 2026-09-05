@@ -450,7 +450,7 @@ client.once('ready', async () => {
     
     // Cambia el estado (luna amarilla):
     // Opciones posibles: 'idle' (Inactivo/Luna), 'online' (En línea), 'dnd' (No molestar), 'invisible'
-    client.user.setStatus('idle'); 
+    client.user.setStatus('dnd'); 
 
     // Cambia la actividad (Texto abajo del bot):
     client.user.setActivity('Servidores de Discord', { 
