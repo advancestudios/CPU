@@ -42,7 +42,7 @@ const client = new Client({
     // TRUCO PARA EL ICONO DE TELÉFONO
     ws: {
         properties: {
-            browser: 'Discord iOS' // También puedes usar 'Discord Android'
+            browser: 'Discord Android' // También puedes usar 'Discord Android'
         }
     },
     presence: {
