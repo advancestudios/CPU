@@ -39,6 +39,12 @@ const client = new Client({
         GatewayIntentBits.DirectMessages,
         GatewayIntentBits.MessageContent
     ],
+    // TRUCO PARA EL ICONO DE TELÉFONO
+    ws: {
+        properties: {
+            browser: 'Discord iOS' // También puedes usar 'Discord Android'
+        }
+    },
     presence: {
         status: 'dnd',
         activities: [{
