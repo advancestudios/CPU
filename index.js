@@ -19,14 +19,17 @@ const {
     SectionBuilder,
     ThumbnailBuilder,
     MessageFlags,
-    ActivityType // <--- Importado para las actividades
+    ActivityType
 } = require('discord.js');
 const fs = require('fs');
-const path = path = require('path');
+const path = require('path');
 const express = require('express');
 
 // Creador !CPU/@cpu.x
 // Colaborador KenMyer/@kukumeyers
+
+// ⚠️ Remplazar ID con la que se dará el permiso
+const CREADOR_ID = '1499540267588653156'; 
 
 const client = new Client({
     intents: [
@@ -34,13 +37,20 @@ const client = new Client({
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.DirectMessages,
-        GatewayIntentBits.MessageContent // necesario para leer comandos con prefijo ";"
-    ]
+        GatewayIntentBits.MessageContent
+    ],
+    presence: {
+        status: 'dnd',
+        activities: [{
+            name: 'Servidores de Discord',
+            type: ActivityType.Watching
+        }]
+    }
 });
 
 const PREFIX = ';';
 
-// CONFIGURACIÓN CENTRAL (ahora desde variables de entorno, nunca hardcodeadas)
+// CONFIGURACIÓN CENTRAL
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 
@@ -52,7 +62,6 @@ if (!TOKEN || !CLIENT_ID) {
 const ARCHIVO_WARNS = path.join(__dirname, 'warns.json');
 const ARCHIVO_CONFIG = path.join(__dirname, 'config.json');
 
-// Permisos que se solicitan al invitar el bot a un nuevo servidor (usado en ;botinvite)
 const BOT_INVITE_PERMISSIONS = new PermissionsBitField([
     PermissionFlagsBits.KickMembers,
     PermissionFlagsBits.BanMembers,
@@ -68,7 +77,6 @@ const BOT_INVITE_PERMISSIONS = new PermissionsBitField([
     PermissionFlagsBits.CreateInstantInvite
 ]).bitfield.toString();
 
-// Servidor Express para mantener el bot activo en Render 24/7
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -80,7 +88,6 @@ app.listen(PORT, () => {
     console.log(`🌐 [CPU v2] Servidor web de monitoreo activo en el puerto ${PORT}`);
 });
 
-// Archivos de datos locales
 if (!fs.existsSync(ARCHIVO_WARNS)) fs.writeFileSync(ARCHIVO_WARNS, JSON.stringify({}), 'utf8');
 if (!fs.existsSync(ARCHIVO_CONFIG)) fs.writeFileSync(ARCHIVO_CONFIG, JSON.stringify({}), 'utf8');
 
@@ -91,8 +98,6 @@ function guardarConfig(data) {
     fs.writeFileSync(ARCHIVO_CONFIG, JSON.stringify(data, null, 2), 'utf8');
 }
 
-// Config por servidor (objeto con varias claves: postulaciones, modActions, ticketsCategory, ticketsRole)
-// Compatible con el formato viejo, donde config[guildId] era directamente el ID del canal de postulaciones.
 function getGuildConfig(guildId) {
     const config = obtenerConfig();
     let entry = config[guildId];
@@ -112,17 +117,10 @@ function setGuildConfig(guildId, updates) {
     return config[guildId];
 }
 
-// Los warns se guardan con llave "guildId-userId" para que no se mezclen entre distintos servidores
 function warnKey(guildId, userId) {
     return `${guildId}-${userId}`;
 }
 
-// ================================================
-// 🎨 CONVERSOR A COMPONENTS V2
-// Toma cualquier embed ya armado (título, color, avatar, campos, footer)
-// y lo transforma al formato nuevo con divisores, para que se vea más
-// elegante. El código que arma cada embed no cambia, solo cómo se envía.
-// ================================================
 function embedToContainer(embed) {
     const data = embed.data || {};
     const container = new ContainerBuilder();
@@ -157,18 +155,14 @@ function embedToContainer(embed) {
     return container;
 }
 
-// Envía una copia del embed de una sanción/moderación al canal configurado con /setup mod-actions
 async function logModeracion(guild, embed, components = []) {
     const cfg = getGuildConfig(guild.id);
     if (!cfg.modActions) return;
     const canal = guild.channels.cache.get(cfg.modActions);
     if (!canal) return;
-    try { await canal.send({ components: [embedToContainer(embed), ...components], flags: MessageFlags.IsComponentsV2 }); } catch (e) { /* canal borrado o sin permisos, se ignora */ }
+    try { await canal.send({ components: [embedToContainer(embed), ...components], flags: MessageFlags.IsComponentsV2 }); } catch (e) { }
 }
 
-// Crea el canal de ticket para "member". abiertoPor es quien lo originó (el mismo usuario si usó el botón, o un Staff si usó /open).
-// Devuelve { ok: true, channel } o { ok: false, motivo }.
-// Construye el embed base del ticket (se usa tanto al crearlo como al reclamarlo)
 function construirEmbedTicket(nombreUsuario, atendidoPor) {
     return new EmbedBuilder()
         .setTitle('🎫 Ticket de Soporte')
@@ -200,13 +194,11 @@ async function crearTicket(guild, member, abiertoPor) {
 
     const nombreBase = member.user.username.toLowerCase().replace(/[^a-z0-9]/g, '') || member.id;
 
-    // Mapa para evitar overwrites duplicados por el mismo id (Discord rechaza duplicados)
     const overwritesMap = new Map();
     overwritesMap.set(guild.roles.everyone.id, { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] });
     overwritesMap.set(member.id, { id: member.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
     overwritesMap.set(client.user.id, { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ReadMessageHistory] });
 
-    // Acceso automático para cualquier rol con Administrador o Gestionar Canales, aunque no se haya configurado /setup-rol-soporte
     guild.roles.cache.forEach(rolServidor => {
         if (rolServidor.permissions.has(PermissionFlagsBits.Administrator) || rolServidor.permissions.has(PermissionFlagsBits.ManageChannels)) {
             overwritesMap.set(rolServidor.id, { id: rolServidor.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
@@ -236,7 +228,6 @@ async function crearTicket(guild, member, abiertoPor) {
     const abiertoPorStaff = abiertoPor && abiertoPor.id !== member.id;
     const embedTicket = construirEmbedTicket(member.user.username, abiertoPorStaff ? abiertoPor.username : null);
 
-    // Si lo abrió el Staff manualmente (/open), ya se sabe quién atiende: se omite el botón de Tomar Ticket
     const botones = abiertoPorStaff
         ? [new ButtonBuilder().setCustomId('cerrar_ticket').setLabel('Cerrar Ticket').setEmoji('🔒').setStyle(ButtonStyle.Danger)]
         : [
@@ -259,7 +250,6 @@ async function crearTicket(guild, member, abiertoPor) {
     return { ok: true, channel: canalTicket };
 }
 
-// 1. REGISTRO Y DEFINICIÓN COMPLETA DE COMANDOS DE BARRA (SLASH COMMANDS)
 const commands = [
     new SlashCommandBuilder()
         .setName('kick')
@@ -444,30 +434,14 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 client.once('ready', async () => {
     console.log(`🚀 [CPU v2] Núcleo operativo inicializado y activo como ${client.user.tag}`);
 
-    // ================================================
-    // 🌙 CONFIGURACIÓN DE ESTADO Y ACTIVIDAD DEL BOT
-    // ================================================
-    
-    // Cambia el estado (luna amarilla):
-    // Opciones posibles: 'idle' (Inactivo/Luna), 'online' (En línea), 'dnd' (No molestar), 'invisible'
-    client.user.setStatus('dnd'); 
-
-    // Cambia la actividad (Texto abajo del bot):
-    client.user.setActivity('Servidores de Discord', { 
-        type: ActivityType.Watching 
-    });
-
-    // ================================================
-
     try {
         await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-        console.log('✅ [CPU v2] Comandos de barra sincronizados de forma global (puede tardar hasta 1 hora en verse).');
+        console.log('✅ [CPU v2] Comandos de barra sincronizados de forma global.');
     } catch (error) {
         console.error('❌ [CPU v2] Error crítico al sincronizar comandos:', error);
     }
 });
 
-// 2. ORQUESTADOR DE INTERACCIONES (SLASH COMMANDS EXCLUSIVAMENTE)
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
@@ -475,7 +449,6 @@ client.on('interactionCreate', async interaction => {
     const usuario = options.getMember('usuario');
     const razon = options.getString('razon') || 'Ninguna especificada.';
 
-    // COMANDO KICK
     if (commandName === 'kick') {
         if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
         if (!usuario.kickable) return interaction.reply({ content: '❌ Operación denegada: Privilegios insuficientes o jerarquía superior.', ephemeral: true });
@@ -503,7 +476,6 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // COMANDO BAN
     if (commandName === 'ban') {
         if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
         if (!usuario.bannable) return interaction.reply({ content: '❌ Operación denegada: El miembro posee inmunidad o un rol superior.', ephemeral: true });
@@ -525,8 +497,7 @@ client.on('interactionCreate', async interaction => {
             .setFooter({ text: 'CPU v2' })
             .setTimestamp();
 
-        // Se avisa por MD ANTES de banear (una vez baneado, ya no comparte servidor con el bot)
-        try { await usuario.send({ components: [embedToContainer(embed), ...filaApelacion], flags: MessageFlags.IsComponentsV2 }); } catch (e) { /* el usuario tiene los MDs cerrados, se ignora */ }
+        try { await usuario.send({ components: [embedToContainer(embed), ...filaApelacion], flags: MessageFlags.IsComponentsV2 }); } catch (e) { }
 
         try {
             await guild.members.ban(usuario.id, { reason: razon });
@@ -538,7 +509,6 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // COMANDO SOFTBAN
     if (commandName === 'softban') {
         if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
         if (!usuario.bannable) return interaction.reply({ content: '❌ Operación denegada: El miembro posee inmunidad o un rol superior.', ephemeral: true });
@@ -568,7 +538,6 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // COMANDO UNBAN
     if (commandName === 'unban') {
         const userId = options.getString('id');
         try {
@@ -591,7 +560,6 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // COMANDO MUTE
     if (commandName === 'mute') {
         if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
         const minutes = options.getInteger('minutos');
@@ -621,7 +589,6 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // COMANDO UNMUTE
     if (commandName === 'unmute') {
         if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
         if (!usuario.moderatable) return interaction.reply({ content: '❌ No poseo la autoridad para modificar el estado de este miembro.', ephemeral: true });
@@ -643,7 +610,6 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
     }
 
-    // COMANDO WARN
     if (commandName === 'warn') {
         if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
         if (usuario.user.bot) return interaction.reply({ content: '❌ Los perfiles automatizados (bots) no pueden recibir amonestaciones.', ephemeral: true });
@@ -687,7 +653,6 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // SUBCOMANDOS WARNS (WARNS VIEW / WARNS CLEAR)
     if (commandName === 'warns') {
         if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
         const sub = options.getSubcommand();
@@ -754,7 +719,6 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // SUBCOMANDOS ROLE (ROLE ADD / ROLE REMOVE)
     if (commandName === 'role') {
         if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
         const sub = options.getSubcommand();
@@ -801,7 +765,6 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // COMANDO CLEAR
     if (commandName === 'clear') {
         const cantidad = options.getInteger('cantidad');
         try {
@@ -815,7 +778,6 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // COMANDO NICK UNIVERSAL
     if (commandName === 'nick') {
         const nuevoApodo = options.getString('apodo') || null;
         const miembroObjetivo = options.getMember('usuario') || interaction.member;
@@ -856,7 +818,6 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // COMANDO USERINFO
     if (commandName === 'userinfo') {
         const miembro = options.getMember('usuario') || interaction.member;
         const rolesOrdenados = miembro.roles.cache
@@ -880,11 +841,9 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
     }
 
-    // COMANDO CMDCHECK (VERIFICADOR DE PERMISOS)
     if (commandName === 'cmdcheck') {
         const miembro = options.getMember('usuario') || interaction.member;
 
-        // Mapa de permisos técnicos -> nombre legible en español
         const mapaPermisos = {
             Administrator: 'Administrador',
             ManageGuild: 'Gestionar Servidor',
@@ -920,7 +879,6 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
     }
 
-    // COMANDO SET CANAL POSTULACIONES
     if (commandName === 'set-canal-postulaciones') {
         const canalTexto = options.getChannel('canal');
         setGuildConfig(guild.id, { postulaciones: canalTexto.id });
@@ -935,7 +893,6 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
     }
 
-    // COMANDO SETUP (MOD ACTIONS / TICKETS)
     if (commandName === 'setup') {
         const sub = options.getSubcommand();
 
@@ -985,7 +942,6 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // COMANDO ROL SOPORTE
     if (commandName === 'setup-rol-soporte') {
         const rol = options.getRole('rol');
         setGuildConfig(guild.id, { ticketsRole: rol.id });
@@ -1000,7 +956,6 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
     }
 
-    // COMANDO PANEL TICKETS
     if (commandName === 'setup-panel-tickets') {
         const cfg = getGuildConfig(guild.id);
         if (!cfg.ticketsCategory) {
@@ -1022,7 +977,6 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ content: '✅ Panel de tickets enviado.', ephemeral: true });
     }
 
-    // COMANDO OPEN (abrir ticket manual a nombre de otro usuario)
     if (commandName === 'open') {
         const cfgOpen = getGuildConfig(guild.id);
         const esStaff = (cfgOpen.ticketsRole && interaction.member.roles.cache.has(cfgOpen.ticketsRole)) || interaction.member.permissions.has(PermissionFlagsBits.ManageChannels);
@@ -1045,7 +999,6 @@ client.on('interactionCreate', async interaction => {
         return interaction.editReply({ content: `✅ Ticket abierto para **${miembroObjetivo.user.username}**: <#${resultado.channel.id}>` });
     }
 
-    // COMANDO S (enviar mensaje con el bot)
     if (commandName === 's') {
         const mensaje = options.getString('mensaje');
         const canalDestino = options.getChannel('canal') || channel;
@@ -1059,7 +1012,6 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // COMANDO POSTULARSE
     if (commandName === 'postularse') {
         const canalId = getGuildConfig(guild.id).postulaciones;
 
@@ -1100,20 +1052,12 @@ client.on('interactionCreate', async interaction => {
                 if (i.customId === 'iniciar_postulacion') {
                     await i.update({ components: [new TextDisplayBuilder().setContent('📝 **Proceso Iniciado.** Responde a las siguientes preguntas directamente por este chat.')], flags: MessageFlags.IsComponentsV2 });
 
-                    // ================================================
-                    // 📋 PREGUNTAS DE POSTULACIÓN — EDITA AQUÍ
-                    // Agrega, quita o cambia el texto de cada pregunta.
-                    // El bot las envía en el mismo orden en que aparecen.
-                    // ================================================
                     const preguntas = [
                         '1️⃣ ¿Qué edad tienes? (Requisitos: +15)',
                         '2️⃣ ¿Tienes experiencia previa como Moderador o Staff?',
                         '3️⃣ ¿Cuántas horas diarias podrías dedicar?',
                         '4️⃣ Prueba: ¿Que harias al ver una discusion?'
                     ];
-                    // ================================================
-                    // FIN PREGUNTAS DE POSTULACIÓN
-                    // ================================================
 
                     const respuestas = [];
                     const dmChannel = await user.createDM();
@@ -1161,7 +1105,7 @@ client.on('interactionCreate', async interaction => {
                 if (!respondido) {
                     try {
                         await mensajeDM.edit({ components: [new TextDisplayBuilder().setContent('⏳ El tiempo para responder expiró. Usa `/postularse` de nuevo si deseas continuar.')], flags: MessageFlags.IsComponentsV2 });
-                    } catch (e) { /* el MD pudo haber sido borrado por el usuario, se ignora */ }
+                    } catch (e) { }
                 }
             });
 
@@ -1171,14 +1115,52 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-// 3. COMANDOS CON PREFIJO PERSONALIZADO ";" (SOLO LOCK Y UNLOCK)
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
-    if (!message.guild) return; // ignorar DMs
+    if (!message.guild) return;
     if (!message.content.startsWith(PREFIX)) return;
 
     const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
     const comando = args.shift().toLowerCase();
+
+    // COMANDO PARA CAMBIAR ESTADO (SOLO CREADOR)
+    if (comando === 'setstatus') {
+        if (message.author.id !== CREADOR_ID) {
+            return message.reply({ content: '❌ Este comando es de uso exclusivo para mi creador.' });
+        }
+
+        const estado = args[0]?.toLowerCase();
+        const tipoActividad = args[1]?.toLowerCase();
+        const texto = args.slice(2).join(' ');
+
+        if (!estado || !['online', 'idle', 'dnd', 'invisible'].includes(estado)) {
+            return message.reply({ 
+                content: '⚠️ **Uso correcto:** `;setstatus <estado> <tipo> <texto>`\n**Estados:** `online`, `idle`, `dnd`, `invisible`\n**Tipos:** `watching`, `playing`, `listening`, `competing`\n**Ejemplo:** `;setstatus dnd watching Servidores de Discord`' 
+            });
+        }
+
+        const tiposMap = {
+            'watching': ActivityType.Watching,
+            'playing': ActivityType.Playing,
+            'listening': ActivityType.Listening,
+            'competing': ActivityType.Competing
+        };
+
+        try {
+            client.user.setPresence({
+                status: estado,
+                activities: texto && tiposMap[tipoActividad] ? [{
+                    name: texto,
+                    type: tiposMap[tipoActividad]
+                }] : []
+            });
+
+            return message.reply({ content: `✅ Presencia actualizada a estado **${estado.toUpperCase()}**${texto ? ` y actividad "${texto}"` : ''}.` });
+        } catch (error) {
+            console.error('Error al cambiar estado:', error);
+            return message.reply({ content: '❌ Ocurrió un error al intentar cambiar la presencia.' });
+        }
+    }
 
     if (comando === 'ping') {
         const inicio = Date.now();
@@ -1188,10 +1170,6 @@ client.on('messageCreate', async message => {
     }
 
     if (comando === 'help') {
-        // ================================================
-        // 📖 LISTA DE COMANDOS — EDITA AQUÍ
-        // Cada clave es el nombre de la categoría/página.
-        // ================================================
         const listaComandos = {
             'Moderación (Slash)': [
                 '`/kick` — Expulsa a un miembro',
@@ -1219,12 +1197,10 @@ client.on('messageCreate', async message => {
                 '`;botinvite` — Obtén el enlace para invitar al bot',
                 '`;serverinvite` — Recibe la invitación de este servidor por MD',
                 '`;lock` — Bloquea el canal actual',
-                '`;unlock` — Desbloquea el canal actual'
+                '`;unlock` — Desbloquea el canal actual',
+                '`;setstatus` — Cambia el estado del bot (Solo creador)'
             ]
         };
-        // ================================================
-        // FIN LISTA DE COMANDOS
-        // ================================================
 
         const categorias = Object.keys(listaComandos);
         let pagina = 0;
@@ -1255,7 +1231,7 @@ client.on('messageCreate', async message => {
         });
 
         collector.on('end', async () => {
-            try { await helpMsg.edit({ components: [embedToContainer(construirEmbed(pagina))], flags: MessageFlags.IsComponentsV2 }); } catch (e) { /* el mensaje pudo haber sido borrado */ }
+            try { await helpMsg.edit({ components: [embedToContainer(construirEmbed(pagina))], flags: MessageFlags.IsComponentsV2 }); } catch (e) { }
         });
         return;
     }
@@ -1314,14 +1290,12 @@ client.on('messageCreate', async message => {
     }
 });
 
-// 4. SISTEMA DE TICKETS (ABRIR / TOMAR / CERRAR)
 client.on('interactionCreate', async interaction => {
     if (!interaction.isButton()) return;
 
     const { customId, guild, member, channel } = interaction;
     if (!guild) return;
 
-    // ABRIR TICKET
     if (customId === 'abrir_ticket') {
         await interaction.deferReply({ ephemeral: true });
 
@@ -1333,7 +1307,6 @@ client.on('interactionCreate', async interaction => {
         return interaction.editReply({ content: `✅ Tu ticket fue creado: <#${resultado.channel.id}>` });
     }
 
-    // TOMAR TICKET
     if (customId === 'tomar_ticket') {
         const cfg = getGuildConfig(guild.id);
         const esStaff = (cfg.ticketsRole && member.roles.cache.has(cfg.ticketsRole)) || member.permissions.has(PermissionFlagsBits.ManageChannels);
@@ -1348,7 +1321,6 @@ client.on('interactionCreate', async interaction => {
 
         try {
             const embedActualizado = construirEmbedTicket(nombreUsuario, member.user.username);
-            // Se deja solo el botón de Cerrar Ticket; ya no se puede volver a reclamar
             const filaSoloCerrar = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('cerrar_ticket').setLabel('Cerrar Ticket').setEmoji('🔒').setStyle(ButtonStyle.Danger)
             );
@@ -1359,7 +1331,6 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // CERRAR TICKET
     if (customId === 'cerrar_ticket') {
         const cfg = getGuildConfig(guild.id);
         const topic = channel.topic || '';
