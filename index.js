@@ -24,12 +24,71 @@ const {
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
-const mongoose = require('mongoose'); // 1. Importamos mongoose
+// ========================================================
+// SISTEMA DE CONFIGURACIÓN UNIVERSAL (CACHE + MONGO DB)
+// ========================================================
+const mongoose = require('mongoose');
 
-// 2. Conectamos a la base de datos usando la variable de Render
+// 1. Estructura de la base de datos por Servidor
+const ServerSchema = new mongoose.Schema({
+    guildId: { type: String, required: true, unique: true },
+    settings: { type: Map, of: mongoose.Schema.Types.Mixed, default: {} } 
+    // ^ Aquí se guardará CUALQUIER cosa (canales, roles, prefijos, etc.) de forma dinámica
+});
+
+const ServerModel = mongoose.model('Server', ServerSchema);
+
+// 2. Memoria Caché para que el bot lea los datos al instante sin ralentizarse
+global.botCache = new Map();
+
+// 3. Conexión y carga inicial de datos
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('🟢 [MongoDB] Conectado exitosamente a Atlas'))
-    .catch(err => console.error('🔴 [MongoDB] Error al conectar:', err));
+    .then(async () => {
+        console.log('🟢 [MongoDB] Conectado exitosamente a Atlas.');
+        
+        // Cargamos todas las configuraciones existentes a la memoria del bot
+        const todosLosServidores = await ServerModel.find({});
+        todosLosServidores.forEach(srv => {
+            global.botCache.set(srv.guildId, srv.settings);
+        });
+        console.log(`📦 [Cache] Se han cargado las configuraciones de ${todosLosServidores.length} servidores.`);
+    })
+    .catch(err => console.error('🔴 [MongoDB] Error crítico al conectar:', err));
+
+// 4. Funciones Globales para usar en CUALQUIER comando de tu bot
+global.getSetting = (guildId, key, defaultValue = null) => {
+    const srvSettings = global.botCache.get(guildId);
+    if (!srvSettings) return defaultValue;
+    // Si es un Map de Mongoose o un objeto normal, extraemos el valor
+    const value = srvSettings instanceof Map ? srvSettings.get(key) : srvSettings[key];
+    return value !== undefined ? value : defaultValue;
+};
+
+global.setSetting = async (guildId, key, value) => {
+    // 1. Actualizar en la memoria rápida (Caché)
+    if (!global.botCache.has(guildId)) {
+        global.botCache.set(guildId, new Map());
+    }
+    const srvSettings = global.botCache.get(guildId);
+    if (srvSettings instanceof Map) {
+        srvSettings.set(key, value);
+    } else {
+        srvSettings[key] = value;
+    }
+
+    // 2. Guardar en la nube (MongoDB Atlas) en segundo plano para que nunca se borre
+    try {
+        await ServerModel.findOneAndUpdate(
+            { guildId: guildId },
+            { $set: { [`settings.${key}`]: value } },
+            { upsert: true }
+        );
+    } catch (error) {
+        console.error(`🔴 Error al guardar configuración (${key}) en MongoDB para el servidor ${guildId}:`, error);
+    }
+};
+// ========================================================
+
 
 // Creador !CPU/@cpu.x
 // Colaborador KenMyer/@kukumeyers
