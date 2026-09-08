@@ -18,6 +18,7 @@
     "discord.js": "^14.26.4",
     "dotenv": "^16.4.5",
     "express": "^5.2.1",
+    "mongodb": "^7.6.0",
     "mongoose": "^9.9.5"
   }
 }
