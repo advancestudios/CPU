@@ -54,7 +54,7 @@ __A continuación__ se mostraran una serie de comandos con descripcion que el bo
 # ¿Quieres formar parte del Desarrollo?
 - Si quieres formar parte del equipo de desarrollo y aportar tu idea y linea de codigo, no dudes en contactar con el creador por medio de Discord!
 
-### Requisitos para formar parte del Dev™
+### Requisitos para formar parte del Equipo
 - Requisito minimo de edad: 14
 - Lenguaje de programación: JavaScript
 - Tiempo libre: El que tengas disponible
@@ -63,4 +63,6 @@ __A continuación__ se mostraran una serie de comandos con descripcion que el bo
 
   - Para entrar y participar en nuestro equipo de Desarrollo, usa este enlace de postulación [Postulación Dev™ CPU](https://forms.gle/GZFv4PXLY8qGc5Sh8)
 
--# 2026 © - All rights reserved
+
+
+2026 © - All rights reserved
