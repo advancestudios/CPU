@@ -42,13 +42,13 @@ const client = new Client({
     // TRUCO PARA EL ICONO DE TELÉFONO
     ws: {
         properties: {
-            browser: 'Discord iOS' // También puedes usar 'Discord Android'
+            $browser: 'Discord iOS' // También puedes usar 'Discord Android'
         }
     },
     presence: {
-        status: 'dnd',
+        status: 'online',
         activities: [{
-            name: 'Servidores de Discord',
+            name: 'Render Database v2',
             type: ActivityType.Watching
         }]
     }
