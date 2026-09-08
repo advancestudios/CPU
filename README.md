@@ -62,3 +62,5 @@ __A continuación__ se mostraran una serie de comandos con descripcion que el bo
 - Tener un correo electronico activo (opcional)
 
   - Para entrar y participar en nuestro equipo de Desarrollo, usa este enlace de postulación [Postulación Dev™ CPU](https://forms.gle/GZFv4PXLY8qGc5Sh8)
+
+-# 2026 © - All rights reserved
