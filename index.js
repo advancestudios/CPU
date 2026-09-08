@@ -113,7 +113,7 @@ const client = new Client({
     presence: {
         status: 'online',
         activities: [{
-            name: 'Servidores',
+            name: 'Updater',
             type: ActivityType.Watching
         }]
     }
