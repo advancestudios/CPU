@@ -24,6 +24,12 @@ const {
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
+const mongoose = require('mongoose'); // 1. Importamos mongoose
+
+// 2. Conectamos a la base de datos usando la variable de Render
+mongoose.connect(process.env.MONGO_URI)
+    .then(() => console.log('🟢 [MongoDB] Conectado exitosamente a Atlas'))
+    .catch(err => console.error('🔴 [MongoDB] Error al conectar:', err));
 
 // Creador !CPU/@cpu.x
 // Colaborador KenMyer/@kukumeyers
