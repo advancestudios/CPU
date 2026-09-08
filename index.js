@@ -48,7 +48,7 @@ const client = new Client({
     presence: {
         status: 'online',
         activities: [{
-            name: 'Render Database v2',
+            name: 'Servidores',
             type: ActivityType.Watching
         }]
     }
