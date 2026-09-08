@@ -90,11 +90,11 @@ global.setSetting = async (guildId, key, value) => {
 // ========================================================
 
 
-// Creador !CPU/@cpu.x
-// Colaborador KenMyer/@kukumeyers
+// Creador: @advancestudios
+// Colaboradores: @kukumeyers
 
 // ⚠️ Remplazar ID con la que se dará el permiso
-const CREADOR_ID = '1499540267588653156, 1527879252760989696'; 
+const CREADOR_ID = '1499540267588653156'; 
 
 const client = new Client({
     intents: [
