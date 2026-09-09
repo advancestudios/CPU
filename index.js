@@ -94,7 +94,7 @@ global.setSetting = async (guildId, key, value) => {
 // Colaboradores: @kukumeyers
 
 // ⚠️ Remplazar ID con la que se dará el permiso
-const CREADOR_ID = '1419053430697234603'; 
+const CREADOR_ID = '1499540267588653156'; 
 
 const client = new Client({
     intents: [
@@ -107,13 +107,13 @@ const client = new Client({
     // TRUCO PARA EL ICONO DE TELÉFONO
     ws: {
         properties: {
-            browser: 'Discord iOS' // También puedes usar 'Discord Android'
+            browser: 'Discord Android' // También puedes usar 'Discord Android'
         }
     },
     presence: {
         status: 'online',
         activities: [{
-            name: 'Updater',
+            name: 'Discore Developer Portal',
             type: ActivityType.Watching
         }]
     }
