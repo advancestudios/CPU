@@ -19,11 +19,15 @@ const {
     SectionBuilder,
     ThumbnailBuilder,
     MessageFlags,
-    ActivityType
+    ActivityType,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle
 } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
+
 // ========================================================
 // SISTEMA DE CONFIGURACIÓN UNIVERSAL (CACHE + MONGO DB)
 // ========================================================
@@ -33,7 +37,6 @@ const mongoose = require('mongoose');
 const ServerSchema = new mongoose.Schema({
     guildId: { type: String, required: true, unique: true },
     settings: { type: Map, of: mongoose.Schema.Types.Mixed, default: {} } 
-    // ^ Aquí se guardará CUALQUIER cosa (canales, roles, prefijos, etc.) de forma dinámica
 });
 
 const ServerModel = mongoose.model('Server', ServerSchema);
@@ -46,7 +49,6 @@ mongoose.connect(process.env.MONGO_URI)
     .then(async () => {
         console.log('🟢 [MongoDB] Conectado exitosamente a Atlas.');
         
-        // Cargamos todas las configuraciones existentes a la memoria del bot
         const todosLosServidores = await ServerModel.find({});
         todosLosServidores.forEach(srv => {
             global.botCache.set(srv.guildId, srv.settings);
@@ -59,13 +61,11 @@ mongoose.connect(process.env.MONGO_URI)
 global.getSetting = (guildId, key, defaultValue = null) => {
     const srvSettings = global.botCache.get(guildId);
     if (!srvSettings) return defaultValue;
-    // Si es un Map de Mongoose o un objeto normal, extraemos el valor
     const value = srvSettings instanceof Map ? srvSettings.get(key) : srvSettings[key];
     return value !== undefined ? value : defaultValue;
 };
 
 global.setSetting = async (guildId, key, value) => {
-    // 1. Actualizar en la memoria rápida (Caché)
     if (!global.botCache.has(guildId)) {
         global.botCache.set(guildId, new Map());
     }
@@ -76,7 +76,6 @@ global.setSetting = async (guildId, key, value) => {
         srvSettings[key] = value;
     }
 
-    // 2. Guardar en la nube (MongoDB Atlas) en segundo plano para que nunca se borre
     try {
         await ServerModel.findOneAndUpdate(
             { guildId: guildId },
@@ -89,11 +88,6 @@ global.setSetting = async (guildId, key, value) => {
 };
 // ========================================================
 
-
-// Creador: @advancestudios
-// Colaboradores: @kukumeyers
-
-// ⚠️ Remplazar ID con la que se dará el permiso
 const CREADOR_ID = '1499540267588653156'; 
 
 const client = new Client({
@@ -104,10 +98,9 @@ const client = new Client({
         GatewayIntentBits.DirectMessages,
         GatewayIntentBits.MessageContent
     ],
-    // TRUCO PARA EL ICONO DE TELÉFONO
     ws: {
         properties: {
-            browser: 'Discord Android' // También puedes usar 'Discord Android'
+            browser: 'Discord Android'
         }
     },
     presence: {
@@ -121,7 +114,6 @@ const client = new Client({
 
 const PREFIX = ';';
 
-// CONFIGURACIÓN CENTRAL
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 
@@ -475,11 +467,10 @@ const commands = [
         .setDescription('Abre un ticket de soporte a nombre de otro usuario (uso del Staff)')
         .addUserOption(opt => opt.setName('usuario').setDescription('Usuario al que se le abrirá el ticket').setRequired(true)),
 
+    // CAMBIADO A /send
     new SlashCommandBuilder()
-        .setName('s')
-        .setDescription('Envía un mensaje con el bot (uso del Staff)')
-        .addStringOption(opt => opt.setName('mensaje').setDescription('Texto a enviar').setRequired(true))
-        .addChannelOption(opt => opt.setName('canal').setDescription('Canal destino (por defecto, el actual)').addChannelTypes(ChannelType.GuildText).setRequired(false))
+        .setName('send')
+        .setDescription('Envía un mensaje con el bot usando un cuadro de texto (uso del Staff)')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
     new SlashCommandBuilder()
@@ -514,6 +505,22 @@ client.once('ready', async () => {
 });
 
 client.on('interactionCreate', async interaction => {
+    // MANEJO DEL MODAL DE /send
+    if (interaction.isModalSubmit()) {
+        if (interaction.customId === 'modal_comando_send') {
+            const contenidoMensaje = interaction.fields.getTextInputValue('input_mensaje_send');
+            
+            try {
+                await interaction.reply({ content: '✅ Mensaje enviado.', ephemeral: true });
+                return await interaction.channel.send({ content: contenidoMensaje });
+            } catch (error) {
+                console.error('Error al enviar mensaje del modal /send:', error);
+                return interaction.followUp({ content: '❌ No pude enviar el mensaje en este canal.', ephemeral: true }).catch(() => {});
+            }
+        }
+        return;
+    }
+
     if (!interaction.isChatInputCommand()) return;
 
     const { commandName, options, guild, user, channel } = interaction;
@@ -1070,17 +1077,24 @@ client.on('interactionCreate', async interaction => {
         return interaction.editReply({ content: `✅ Ticket abierto para **${miembroObjetivo.user.username}**: <#${resultado.channel.id}>` });
     }
 
-    if (commandName === 's') {
-        const mensaje = options.getString('mensaje');
-        const canalDestino = options.getChannel('canal') || channel;
+    // EJECUCIÓN DEL COMANDO /send
+    if (commandName === 'send') {
+        const modal = new ModalBuilder()
+            .setCustomId('modal_comando_send')
+            .setTitle('Enviar mensaje con el bot');
 
-        try {
-            await canalDestino.send({ content: mensaje });
-            return interaction.reply({ content: `✅ Mensaje enviado en <#${canalDestino.id}>.`, ephemeral: true });
-        } catch (error) {
-            console.error('Error en /s:', error);
-            return interaction.reply({ content: '❌ No pude enviar el mensaje. Revisa mis permisos en ese canal.', ephemeral: true });
-        }
+        const inputMensaje = new TextInputBuilder()
+            .setCustomId('input_mensaje_send')
+            .setLabel('Mensaje')
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder('Escribe el contenido del mensaje aquí...')
+            .setRequired(true)
+            .setMaxLength(2000);
+
+        const primeraFila = new ActionRowBuilder().addComponents(inputMensaje);
+        modal.addComponents(primeraFila);
+
+        return await interaction.showModal(modal);
     }
 
     if (commandName === 'postularse') {
@@ -1194,7 +1208,6 @@ client.on('messageCreate', async message => {
     const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
     const comando = args.shift().toLowerCase();
 
-    // COMANDO PARA CAMBIAR ESTADO (SOLO CREADOR)
     if (comando === 'setstatus') {
         if (message.author.id !== CREADOR_ID) {
             return message.reply({ content: '❌ Este comando es de uso exclusivo para mi creador.' });
@@ -1260,7 +1273,8 @@ client.on('messageCreate', async message => {
                 '`/userinfo` — Información de un miembro',
                 '`/cmdcheck` — Verifica los permisos de un miembro',
                 '`/postularse` — Inicia tu proceso de postulación',
-                '`/set-canal-postulaciones` — Configura el canal de postulaciones'
+                '`/set-canal-postulaciones` — Configura el canal de postulaciones',
+                '`/send` — Envía un mensaje en el canal mediante un cuadro de texto'
             ],
             'Generales (Prefijo ;)': [
                 '`;ping` — Verifica la latencia del bot',
