@@ -106,7 +106,7 @@ const client = new Client({
     presence: {
         status: 'online',
         activities: [{
-            name: 'Discore Developer Portal',
+            name: 'Discord Developer Portal',
             type: ActivityType.Watching
         }]
     }
