@@ -471,7 +471,7 @@ const commands = [
     new SlashCommandBuilder()
         .setName('send')
         .setDescription('Envía un mensaje con el bot usando un cuadro de texto (uso del Staff)')
-        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     new SlashCommandBuilder()
         .setName('softban')
