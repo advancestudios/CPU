@@ -33,7 +33,6 @@ const express = require('express');
 // ========================================================
 const mongoose = require('mongoose');
 
-// 1. Estructura de la base de datos por Servidor
 const ServerSchema = new mongoose.Schema({
     guildId: { type: String, required: true, unique: true },
     settings: { type: Map, of: mongoose.Schema.Types.Mixed, default: {} } 
@@ -41,10 +40,8 @@ const ServerSchema = new mongoose.Schema({
 
 const ServerModel = mongoose.model('Server', ServerSchema);
 
-// 2. Memoria Caché para que el bot lea los datos al instante sin ralentizarse
 global.botCache = new Map();
 
-// 3. Conexión y carga inicial de datos
 mongoose.connect(process.env.MONGO_URI)
     .then(async () => {
         console.log('🟢 [MongoDB] Conectado exitosamente a Atlas.');
@@ -57,7 +54,6 @@ mongoose.connect(process.env.MONGO_URI)
     })
     .catch(err => console.error('🔴 [MongoDB] Error crítico al conectar:', err));
 
-// 4. Funciones Globales para usar en CUALQUIER comando de tu bot
 global.getSetting = (guildId, key, defaultValue = null) => {
     const srvSettings = global.botCache.get(guildId);
     if (!srvSettings) return defaultValue;
@@ -180,6 +176,14 @@ function setGuildConfig(guildId, updates) {
     return config[guildId];
 }
 
+// FUNCIÓN AUXILIAR PARA VERIFICAR SI UN MIEMBRO ES STAFF
+function esMiembroStaff(member, guildId) {
+    if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
+    const cfg = getGuildConfig(guildId);
+    if (cfg.staffRole && member.roles.cache.has(cfg.staffRole)) return true;
+    return false;
+}
+
 function warnKey(guildId, userId) {
     return `${guildId}-${userId}`;
 }
@@ -268,8 +272,9 @@ async function crearTicket(guild, member, abiertoPor) {
         }
     });
 
-    if (cfg.ticketsRole) {
-        overwritesMap.set(cfg.ticketsRole, { id: cfg.ticketsRole, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
+    const rolNotif = cfg.staffRole || cfg.ticketsRole;
+    if (rolNotif) {
+        overwritesMap.set(rolNotif, { id: rolNotif, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
     }
 
     const overwrites = Array.from(overwritesMap.values());
@@ -299,7 +304,7 @@ async function crearTicket(guild, member, abiertoPor) {
         ];
     const rowTicket = new ActionRowBuilder().addComponents(...botones);
 
-    const mencionStaff = cfg.ticketsRole ? `<@&${cfg.ticketsRole}>` : '';
+    const mencionStaff = rolNotif ? `<@&${rolNotif}>` : '';
     const textoMencion = `${mencionStaff} <@${member.id}>`.trim();
     await canalTicket.send({
         components: [
@@ -315,24 +320,31 @@ async function crearTicket(guild, member, abiertoPor) {
 
 const commands = [
     new SlashCommandBuilder()
+        .setName('staff')
+        .setDescription('Comandos de administración del Staff')
+        .addSubcommand(sub =>
+            sub.setName('perms')
+               .setDescription('Establece el rol oficial de Staff para permitir el uso de comandos administrativos')
+               .addRoleOption(opt => opt.setName('rol').setDescription('Rol asignado al Staff del servidor').setRequired(true))
+        )
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+    new SlashCommandBuilder()
         .setName('kick')
         .setDescription('Expulsa a un miembro del servidor')
         .addUserOption(opt => opt.setName('usuario').setDescription('El miembro a expulsar').setRequired(true))
-        .addStringOption(opt => opt.setName('razon').setDescription('Motivo detallado'))
-        .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers),
+        .addStringOption(opt => opt.setName('razon').setDescription('Motivo detallado')),
 
     new SlashCommandBuilder()
         .setName('ban')
         .setDescription('Banea a un miembro del Servidor')
         .addUserOption(opt => opt.setName('usuario').setDescription('El miembro a banear').setRequired(true))
-        .addStringOption(opt => opt.setName('razon').setDescription('Motivo detallado'))
-        .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
+        .addStringOption(opt => opt.setName('razon').setDescription('Motivo detallado')),
 
     new SlashCommandBuilder()
         .setName('unban')
         .setDescription('Revoca el baneo de un usuario mediante su ID')
-        .addStringOption(opt => opt.setName('id').setDescription('ID de Discord del usuario').setRequired(true))
-        .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
+        .addStringOption(opt => opt.setName('id').setDescription('ID de Discord del usuario').setRequired(true)),
 
     new SlashCommandBuilder()
         .setName('mute')
@@ -351,21 +363,18 @@ const commands = [
                     { name: '1 Semana', value: 10080 }
                 )
         )
-        .addStringOption(opt => opt.setName('razon').setDescription('Motivo detallado'))
-        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+        .addStringOption(opt => opt.setName('razon').setDescription('Motivo detallado')),
 
     new SlashCommandBuilder()
         .setName('unmute')
         .setDescription('Remueve el aislamiento/silencio de un miembro')
-        .addUserOption(opt => opt.setName('usuario').setDescription('El miembro a restablecer').setRequired(true))
-        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+        .addUserOption(opt => opt.setName('usuario').setDescription('El miembro a restablecer').setRequired(true)),
 
     new SlashCommandBuilder()
         .setName('warn')
         .setDescription('Registra una advertencia formal')
         .addUserOption(opt => opt.setName('usuario').setDescription('El miembro a advertir').setRequired(true))
-        .addStringOption(opt => opt.setName('razon').setDescription('Motivo'))
-        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+        .addStringOption(opt => opt.setName('razon').setDescription('Motivo')),
 
     new SlashCommandBuilder()
         .setName('warns')
@@ -379,8 +388,7 @@ const commands = [
             sub.setName('clear')
                .setDescription('Limpia el historial de advertencias de un miembro')
                .addUserOption(opt => opt.setName('usuario').setDescription('El miembro a limpiar').setRequired(true))
-        )
-        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+        ),
 
     new SlashCommandBuilder()
         .setName('userinfo')
@@ -406,14 +414,12 @@ const commands = [
                .setDescription('Remueve un rol de un miembro')
                .addUserOption(opt => opt.setName('usuario').setDescription('Miembro afectado').setRequired(true))
                .addRoleOption(opt => opt.setName('rol').setDescription('Rol a remover').setRequired(true))
-        )
-        .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles),
+        ),
 
     new SlashCommandBuilder()
         .setName('clear')
         .setDescription('Limpia mensajes masivamente')
-        .addIntegerOption(opt => opt.setName('cantidad').setDescription('Cantidad (1-10000)').setRequired(true).setMinValue(1).setMaxValue(10000))
-        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+        .addIntegerOption(opt => opt.setName('cantidad').setDescription('Cantidad (1-10000)').setRequired(true).setMinValue(1).setMaxValue(10000)),
 
     new SlashCommandBuilder()
         .setName('nick')
@@ -467,11 +473,14 @@ const commands = [
         .setDescription('Abre un ticket de soporte a nombre de otro usuario (uso del Staff)')
         .addUserOption(opt => opt.setName('usuario').setDescription('Usuario al que se le abrirá el ticket').setRequired(true)),
 
-    // CAMBIADO A /send
     new SlashCommandBuilder()
         .setName('send')
-        .setDescription('Envía un mensaje con el bot usando un cuadro de texto (uso del Staff)')
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+        .setDescription('Envía un mensaje usando un cuadro de texto (uso del Staff)'),
+
+    new SlashCommandBuilder()
+        .setName('say')
+        .setDescription('Repite un mensaje especificado (uso del Staff)')
+        .addStringOption(opt => opt.setName('mensaje').setDescription('Contenido del mensaje').setRequired(true)),
 
     new SlashCommandBuilder()
         .setName('softban')
@@ -486,8 +495,7 @@ const commands = [
                 { name: 'Último 1 día', value: '86400' },
                 { name: 'Últimos 3 días', value: '259200' },
                 { name: 'Últimos 7 días', value: '604800' }
-            ))
-        .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
+            )),
 
 ].map(cmd => cmd.toJSON());
 
@@ -505,7 +513,6 @@ client.once('ready', async () => {
 });
 
 client.on('interactionCreate', async interaction => {
-    // MANEJO DEL MODAL DE /send
     if (interaction.isModalSubmit()) {
         if (interaction.customId === 'modal_comando_send') {
             const contenidoMensaje = interaction.fields.getTextInputValue('input_mensaje_send');
@@ -523,9 +530,34 @@ client.on('interactionCreate', async interaction => {
 
     if (!interaction.isChatInputCommand()) return;
 
-    const { commandName, options, guild, user, channel } = interaction;
+    const { commandName, options, guild, user, channel, member } = interaction;
     const usuario = options.getMember('usuario');
     const razon = options.getString('razon') || 'Ninguna especificada.';
+
+    // COMANDOS RESTRINGIDOS EXCLUSIVAMENTE AL STAFF
+    const comandosStaff = ['kick', 'ban', 'softban', 'unban', 'mute', 'unmute', 'warn', 'warns', 'role', 'clear', 'open', 'send', 'say'];
+    if (comandosStaff.includes(commandName)) {
+        if (!esMiembroStaff(member, guild.id)) {
+            return interaction.reply({ content: '❌ Acceso denegado: Necesitas el rol de Staff o permisos de Administrador para usar este comando.', ephemeral: true });
+        }
+    }
+
+    if (commandName === 'staff') {
+        const sub = options.getSubcommand();
+        if (sub === 'perms') {
+            const rolStaff = options.getRole('rol');
+            setGuildConfig(guild.id, { staffRole: rolStaff.id });
+
+            const embed = new EmbedBuilder()
+                .setTitle('⚙️ Permisos de Staff Configurados')
+                .setColor('#57F287')
+                .addFields({ name: 'Rol Autorizado para Staff', value: `<@&${rolStaff.id}>` })
+                .setFooter({ text: 'CPU v2' })
+                .setTimestamp();
+
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+        }
+    }
 
     if (commandName === 'kick') {
         if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
@@ -861,8 +893,8 @@ client.on('interactionCreate', async interaction => {
         const miembroObjetivo = options.getMember('usuario') || interaction.member;
 
         if (miembroObjetivo.id !== user.id) {
-            if (!interaction.member.permissions.has(PermissionFlagsBits.ManageNicknames)) {
-                return interaction.reply({ content: '❌ Requieres el permiso de `Gestionar Apodos` para modificar el alias de otro usuario.', ephemeral: true });
+            if (!esMiembroStaff(interaction.member, guild.id)) {
+                return interaction.reply({ content: '❌ Requieres ser Staff o tener permisos para modificar el alias de otro usuario.', ephemeral: true });
             }
             if (guild.ownerId === miembroObjetivo.id) {
                 return interaction.reply({ content: '❌ Prohibido modificar credenciales del propietario del servidor.', ephemeral: true });
@@ -1056,12 +1088,6 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (commandName === 'open') {
-        const cfgOpen = getGuildConfig(guild.id);
-        const esStaff = (cfgOpen.ticketsRole && interaction.member.roles.cache.has(cfgOpen.ticketsRole)) || interaction.member.permissions.has(PermissionFlagsBits.ManageChannels);
-        if (!esStaff) {
-            return interaction.reply({ content: '❌ No tienes permiso para usar este comando.', ephemeral: true });
-        }
-
         const miembroObjetivo = options.getMember('usuario');
         if (!miembroObjetivo) {
             return interaction.reply({ content: '❌ Ese usuario no se encuentra en el servidor.', ephemeral: true });
@@ -1077,7 +1103,6 @@ client.on('interactionCreate', async interaction => {
         return interaction.editReply({ content: `✅ Ticket abierto para **${miembroObjetivo.user.username}**: <#${resultado.channel.id}>` });
     }
 
-    // EJECUCIÓN DEL COMANDO /send
     if (commandName === 'send') {
         const modal = new ModalBuilder()
             .setCustomId('modal_comando_send')
@@ -1095,6 +1120,18 @@ client.on('interactionCreate', async interaction => {
         modal.addComponents(primeraFila);
 
         return await interaction.showModal(modal);
+    }
+
+    if (commandName === 'say') {
+        const mensajeTexto = options.getString('mensaje');
+
+        try {
+            await channel.send({ content: mensajeTexto });
+            return interaction.reply({ content: '✅ Mensaje enviado.', ephemeral: true });
+        } catch (error) {
+            console.error('Error en /say:', error);
+            return interaction.reply({ content: '❌ No pude enviar el mensaje en este canal.', ephemeral: true });
+        }
     }
 
     if (commandName === 'postularse') {
@@ -1255,6 +1292,9 @@ client.on('messageCreate', async message => {
 
     if (comando === 'help') {
         const listaComandos = {
+            'Configuración Staff': [
+                '`/staff perms` — Configura el rol de Staff del servidor'
+            ],
             'Moderación (Slash)': [
                 '`/kick` — Expulsa a un miembro',
                 '`/ban` — Banea a un miembro',
@@ -1274,7 +1314,8 @@ client.on('messageCreate', async message => {
                 '`/cmdcheck` — Verifica los permisos de un miembro',
                 '`/postularse` — Inicia tu proceso de postulación',
                 '`/set-canal-postulaciones` — Configura el canal de postulaciones',
-                '`/send` — Envía un mensaje en el canal mediante un cuadro de texto'
+                '`/send` — Envía un mensaje en el canal con cuadro de texto',
+                '`/say` — Envía un mensaje directo en el canal'
             ],
             'Generales (Prefijo ;)': [
                 '`;ping` — Verifica la latencia del bot',
@@ -1351,7 +1392,7 @@ client.on('messageCreate', async message => {
     }
 
     if (comando === 'lock') {
-        if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+        if (!esMiembroStaff(message.member, message.guild.id)) {
             return message.reply({ content: '❌ No se pudo bloquear el canal.' });
         }
         try {
@@ -1363,7 +1404,7 @@ client.on('messageCreate', async message => {
     }
 
     if (comando === 'unlock') {
-        if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+        if (!esMiembroStaff(message.member, message.guild.id)) {
             return message.reply({ content: '❌ No se pudo desbloquear el canal.' });
         }
         try {
@@ -1393,9 +1434,7 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (customId === 'tomar_ticket') {
-        const cfg = getGuildConfig(guild.id);
-        const esStaff = (cfg.ticketsRole && member.roles.cache.has(cfg.ticketsRole)) || member.permissions.has(PermissionFlagsBits.ManageChannels);
-        if (!esStaff) {
+        if (!esMiembroStaff(member, guild.id)) {
             return interaction.reply({ content: '❌ No tienes permiso para tomar este ticket.', ephemeral: true });
         }
 
@@ -1417,11 +1456,10 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (customId === 'cerrar_ticket') {
-        const cfg = getGuildConfig(guild.id);
         const topic = channel.topic || '';
         const ownerId = topic.startsWith('ticket-owner:') ? topic.split(':')[1] : null;
         const esDueño = ownerId === member.id;
-        const esStaff = (cfg.ticketsRole && member.roles.cache.has(cfg.ticketsRole)) || member.permissions.has(PermissionFlagsBits.ManageChannels);
+        const esStaff = esMiembroStaff(member, guild.id);
 
         if (!esDueño && !esStaff) {
             return interaction.reply({ content: '❌ No tienes permiso para cerrar este ticket.', ephemeral: true });
