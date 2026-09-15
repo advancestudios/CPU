@@ -88,7 +88,7 @@ global.setSetting = async (guildId, key, value) => {
 };
 // ========================================================
 
-const CREADOR_ID = '1499540267588653156'; 
+const CREADOR_ID = '1306621378291564565'; 
 
 const client = new Client({
     intents: [
