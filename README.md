@@ -66,7 +66,7 @@ __A continuación__ se mostraran una serie de comandos con descripcion que el bo
 ## Equipo de Desarrollo Actual
 Los siguientes miembros que mencionaré a continuación, son los que mas han aportado a este proyecto, además de ser las mas destacadas en el desarrollo, el cual esta en progreso:
   - @kukumeyers
-  - @dubydm
+  - @dreeedcord
 
 
 `2026 © - All rights reserved`
