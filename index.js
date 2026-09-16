@@ -96,14 +96,15 @@ const client = new Client({
     ],
     ws: {
         properties: {
-            browser: 'Discord Android'
+            $browser: 'Discord Android'
         }
     },
     presence: {
         status: 'online',
         activities: [{
-            name: 'Discord Developer Portal',
-            type: ActivityType.Watching
+            name: '¡En vivo en Twitch!',
+            type: ActivityType.Streaming,
+            url: 'https://www.twitch.tv/discord'
         }]
     }
 });
@@ -114,7 +115,7 @@ const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 
 if (!TOKEN || !CLIENT_ID) {
-    console.error('❌ Faltan DISCORD_TOKEN o CLIENT_ID en tu archivo .env. Revisa .env.example');
+    console.error('❌ Faltan DISCORD_TOKEN o CLIENT_ID en tu archivo .env.');
     process.exit(1);
 }
 
@@ -176,7 +177,6 @@ function setGuildConfig(guildId, updates) {
     return config[guildId];
 }
 
-// FUNCIÓN AUXILIAR PARA VERIFICAR SI UN MIEMBRO ES STAFF
 function esMiembroStaff(member, guildId) {
     if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
     const cfg = getGuildConfig(guildId);
@@ -534,7 +534,6 @@ client.on('interactionCreate', async interaction => {
     const usuario = options.getMember('usuario');
     const razon = options.getString('razon') || 'Ninguna especificada.';
 
-    // COMANDOS RESTRINGIDOS EXCLUSIVAMENTE AL STAFF
     const comandosStaff = ['kick', 'ban', 'softban', 'unban', 'mute', 'unmute', 'warn', 'warns', 'role', 'clear', 'open', 'send', 'say'];
     if (comandosStaff.includes(commandName)) {
         if (!esMiembroStaff(member, guild.id)) {
@@ -1245,6 +1244,56 @@ client.on('messageCreate', async message => {
     const args = message.content.slice(PREFIX.length).trim().split(/\s+/);
     const comando = args.shift().toLowerCase();
 
+    if (comando === 'softban') {
+        if (!esMiembroStaff(message.member, message.guild.id)) {
+            return message.reply({ content: '❌ Acceso denegado: Requieres ser Staff o tener permisos de Administrador.' });
+        }
+
+        const usuario = message.mentions.members.first() || message.guild.members.cache.get(args[0]);
+        if (!usuario) {
+            return message.reply({ content: '⚠️ **Uso correcto:** `;softban @usuario [segundos_borrado] [razón]`' });
+        }
+
+        if (!usuario.bannable) {
+            return message.reply({ content: '❌ Operación denegada: El miembro posee inmunidad o un rol superior.' });
+        }
+
+        let segundosBorrar = parseInt(args[1], 10);
+        let razon = args.slice(2).join(' ');
+
+        if (isNaN(segundosBorrar)) {
+            segundosBorrar = 86400;
+            razon = args.slice(1).join(' ') || 'Softban aplicado vía comando con prefijo.';
+        } else {
+            razon = razon || 'Softban aplicado vía comando con prefijo.';
+        }
+
+        if (segundosBorrar > 604800) segundosBorrar = 604800;
+
+        const embed = new EmbedBuilder()
+            .setTitle('🧹 Miembro Expulsado (Softban)')
+            .setColor('#ED4245')
+            .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
+            .addFields(
+                { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
+                { name: 'Moderador', value: `${message.author.username}`, inline: true },
+                { name: 'Razón', value: razon, inline: false }
+            )
+            .setFooter({ text: 'CPU v2' })
+            .setTimestamp();
+
+        try {
+            await message.guild.members.ban(usuario.id, { reason: razon, deleteMessageSeconds: segundosBorrar });
+            await message.guild.members.unban(usuario.id, 'Softban: se libera el baneo tras purgar mensajes').catch(() => {});
+            await logModeracion(message.guild, embed);
+
+            return message.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
+        } catch (error) {
+            console.error('Error al ejecutar softban por prefijo:', error);
+            return message.reply({ content: '❌ Ocurrió un error al intentar aplicar el softban.' });
+        }
+    }
+
     if (comando === 'setstatus') {
         if (message.author.id !== CREADOR_ID) {
             return message.reply({ content: '❌ Este comando es de uso exclusivo para mi creador.' });
@@ -1256,7 +1305,7 @@ client.on('messageCreate', async message => {
 
         if (!estado || !['online', 'idle', 'dnd', 'invisible'].includes(estado)) {
             return message.reply({ 
-                content: '⚠️ **Uso correcto:** `;setstatus <estado> <tipo> <texto>`\n**Estados:** `online`, `idle`, `dnd`, `invisible`\n**Tipos:** `watching`, `playing`, `listening`, `competing`\n**Ejemplo:** `;setstatus dnd watching Servidores de Discord`' 
+                content: '⚠️ **Uso correcto:** `;setstatus <estado> <tipo> <texto>`\n**Estados:** `online`, `idle`, `dnd`, `invisible`\n**Tipos:** `watching`, `playing`, `listening`, `competing`, `streaming`\n**Ejemplo:** `;setstatus online streaming Mi Stream de Twitch`' 
             });
         }
 
@@ -1264,16 +1313,23 @@ client.on('messageCreate', async message => {
             'watching': ActivityType.Watching,
             'playing': ActivityType.Playing,
             'listening': ActivityType.Listening,
-            'competing': ActivityType.Competing
+            'competing': ActivityType.Competing,
+            'streaming': ActivityType.Streaming
         };
 
         try {
+            const actividadObj = {
+                name: texto || 'CPU v2 Bot',
+                type: tiposMap[tipoActividad] || ActivityType.Playing
+            };
+
+            if (tipoActividad === 'streaming') {
+                actividadObj.url = 'https://www.twitch.tv/discord';
+            }
+
             client.user.setPresence({
                 status: estado,
-                activities: texto && tiposMap[tipoActividad] ? [{
-                    name: texto,
-                    type: tiposMap[tipoActividad]
-                }] : []
+                activities: texto ? [actividadObj] : []
             });
 
             return message.reply({ content: `✅ Presencia actualizada a estado **${estado.toUpperCase()}**${texto ? ` y actividad "${texto}"` : ''}.` });
@@ -1295,9 +1351,10 @@ client.on('messageCreate', async message => {
             'Configuración Staff': [
                 '`/staff perms` — Configura el rol de Staff del servidor'
             ],
-            'Moderación (Slash)': [
+            'Moderación (Slash y Prefijo)': [
                 '`/kick` — Expulsa a un miembro',
                 '`/ban` — Banea a un miembro',
+                '`;softban` o `/softban` — Softban (expulsa y purga historial)',
                 '`/unban` — Revoca un baneo',
                 '`/mute` — Silencia temporalmente',
                 '`/unmute` — Remueve el silencio',
