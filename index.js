@@ -473,14 +473,16 @@ const commands = [
         .setDescription('Abre un ticket de soporte a nombre de otro usuario (uso del Staff)')
         .addUserOption(opt => opt.setName('usuario').setDescription('Usuario al que se le abrirá el ticket').setRequired(true)),
 
+    // 👇 1. MODIFICADO: /send envía un mensaje directo
     new SlashCommandBuilder()
         .setName('send')
-        .setDescription('Envía un mensaje usando un cuadro de texto (uso del Staff)'),
+        .setDescription('Envía un mensaje normal en el canal (uso del Staff)')
+        .addStringOption(opt => opt.setName('mensaje').setDescription('Contenido del mensaje a enviar').setRequired(true)),
 
+    // 👇 2. NUEVO: /embed con cuadro de diálogo
     new SlashCommandBuilder()
-        .setName('say')
-        .setDescription('Repite un mensaje especificado (uso del Staff)')
-        .addStringOption(opt => opt.setName('mensaje').setDescription('Contenido del mensaje').setRequired(true)),
+        .setName('embed')
+        .setDescription('Crea y envía un Embed personalizado mediante un formulario (uso del Staff)'),
 
     new SlashCommandBuilder()
         .setName('softban')
@@ -513,16 +515,65 @@ client.once('ready', async () => {
 });
 
 client.on('interactionCreate', async interaction => {
+    // Manejo de Modales (Formularios)
     if (interaction.isModalSubmit()) {
-        if (interaction.customId === 'modal_comando_send') {
-            const contenidoMensaje = interaction.fields.getTextInputValue('input_mensaje_send');
-            
+        if (interaction.customId === 'modal_comando_embed') {
+            const titulo = interaction.fields.getTextInputValue('input_embed_titulo');
+            const contenido = interaction.fields.getTextInputValue('input_embed_contenido');
+            const footer = interaction.fields.getTextInputValue('input_embed_footer');
+
             try {
-                await interaction.reply({ content: '✅ Mensaje enviado.', ephemeral: true });
-                return await interaction.channel.send({ content: contenidoMensaje });
+                const container = new ContainerBuilder().setAccentColor(0x5865F2);
+
+                if (titulo) {
+                    container.addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(`# ${titulo}`)
+                    );
+                }
+
+                if (contenido) {
+                    // Procesar la etiqueta {sp} para agregar líneas separadoras
+                    const partesContenido = contenido.split('{sp}');
+
+                    partesContenido.forEach((bloque, index) => {
+                        const textoLimpio = bloque.trim();
+                        if (textoLimpio.length > 0) {
+                            container.addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent(textoLimpio)
+                            );
+                        }
+
+                        // Agregar separador si no es el último elemento
+                        if (index < partesContenido.length - 1) {
+                            container.addSeparatorComponents(
+                                new SeparatorBuilder()
+                                    .setSpacing(SeparatorSpacingSize.Large)
+                                    .setDivider(true)
+                            );
+                        }
+                    });
+                }
+
+                if (footer) {
+                    container.addSeparatorComponents(
+                        new SeparatorBuilder()
+                            .setSpacing(SeparatorSpacingSize.Small)
+                            .setDivider(false)
+                    );
+                    container.addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent(`-# ${footer}`)
+                    );
+                }
+
+                await interaction.channel.send({
+                    components: [container],
+                    flags: MessageFlags.IsComponentsV2
+                });
+
+                return await interaction.reply({ content: '✅ Embed enviado con éxito.', ephemeral: true });
             } catch (error) {
-                console.error('Error al enviar mensaje del modal /send:', error);
-                return interaction.followUp({ content: '❌ No pude enviar el mensaje en este canal.', ephemeral: true }).catch(() => {});
+                console.error('Error al construir/enviar el embed personalizado:', error);
+                return interaction.reply({ content: '❌ Ocurrió un error al enviar el Embed.', ephemeral: true }).catch(() => {});
             }
         }
         return;
@@ -534,7 +585,7 @@ client.on('interactionCreate', async interaction => {
     const usuario = options.getMember('usuario');
     const razon = options.getString('razon') || 'Ninguna especificada.';
 
-    const comandosStaff = ['kick', 'ban', 'softban', 'unban', 'mute', 'unmute', 'warn', 'warns', 'role', 'clear', 'open', 'send', 'say'];
+    const comandosStaff = ['kick', 'ban', 'softban', 'unban', 'mute', 'unmute', 'warn', 'warns', 'role', 'clear', 'open', 'send', 'embed'];
     if (comandosStaff.includes(commandName)) {
         if (!esMiembroStaff(member, guild.id)) {
             return interaction.reply({ content: '❌ Acceso denegado: Necesitas el rol de Staff o permisos de Administrador para usar este comando.', ephemeral: true });
@@ -1102,35 +1153,54 @@ client.on('interactionCreate', async interaction => {
         return interaction.editReply({ content: `✅ Ticket abierto para **${miembroObjetivo.user.username}**: <#${resultado.channel.id}>` });
     }
 
+    // 👇 1. FUNCIONALIDAD DEL NUEVO /send (Directo)
     if (commandName === 'send') {
-        const modal = new ModalBuilder()
-            .setCustomId('modal_comando_send')
-            .setTitle('Enviar mensaje con el bot');
-
-        const inputMensaje = new TextInputBuilder()
-            .setCustomId('input_mensaje_send')
-            .setLabel('Mensaje')
-            .setStyle(TextInputStyle.Paragraph)
-            .setPlaceholder('Escribe el contenido del mensaje aquí...')
-            .setRequired(true)
-            .setMaxLength(2000);
-
-        const primeraFila = new ActionRowBuilder().addComponents(inputMensaje);
-        modal.addComponents(primeraFila);
-
-        return await interaction.showModal(modal);
-    }
-
-    if (commandName === 'say') {
-        const mensajeTexto = options.getString('mensaje');
+        const contenidoMensaje = options.getString('mensaje');
 
         try {
-            await channel.send({ content: mensajeTexto });
-            return interaction.reply({ content: '✅ Mensaje enviado.', ephemeral: true });
+            await channel.send({ content: contenidoMensaje });
+            return interaction.reply({ content: '✅ Mensaje enviado con éxito.', ephemeral: true });
         } catch (error) {
-            console.error('Error en /say:', error);
+            console.error('Error en /send:', error);
             return interaction.reply({ content: '❌ No pude enviar el mensaje en este canal.', ephemeral: true });
         }
+    }
+
+    // 👇 2. FUNCIONALIDAD DEL NUEVO /embed (Cuadro de Diálogo)
+    if (commandName === 'embed') {
+        const modal = new ModalBuilder()
+            .setCustomId('modal_comando_embed')
+            .setTitle('Crear Embed Personalizado');
+
+        const inputTitulo = new TextInputBuilder()
+            .setCustomId('input_embed_titulo')
+            .setLabel('Título del Embed')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ej: Anuncio Oficial')
+            .setRequired(false);
+
+        const inputContenido = new TextInputBuilder()
+            .setCustomId('input_embed_contenido')
+            .setLabel('Contenido / Descripción (Usa {sp} para línea)')
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder('Escribe el texto aquí. Usa {sp} donde quieras colocar una línea separadora.')
+            .setRequired(true)
+            .setMaxLength(4000);
+
+        const inputFooter = new TextInputBuilder()
+            .setCustomId('input_embed_footer')
+            .setLabel('Pie de página (Footer)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ej: Servidor de Discord • 2026')
+            .setRequired(false);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(inputTitulo),
+            new ActionRowBuilder().addComponents(inputContenido),
+            new ActionRowBuilder().addComponents(inputFooter)
+        );
+
+        return await interaction.showModal(modal);
     }
 
     if (commandName === 'postularse') {
@@ -1371,8 +1441,8 @@ client.on('messageCreate', async message => {
                 '`/cmdcheck` — Verifica los permisos de un miembro',
                 '`/postularse` — Inicia tu proceso de postulación',
                 '`/set-canal-postulaciones` — Configura el canal de postulaciones',
-                '`/send` — Envía un mensaje en el canal con cuadro de texto',
-                '`/say` — Envía un mensaje directo en el canal'
+                '`/send` — Envía un mensaje en el canal',
+                '`/embed` — Envía un Embed formateado usando un cuadro de texto'
             ],
             'Generales (Prefijo ;)': [
                 '`;ping` — Verifica la latencia del bot',
