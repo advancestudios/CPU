@@ -96,7 +96,7 @@ const client = new Client({
     ],
     ws: {
         properties: {
-            $browser: 'Discord Android'
+            browser: 'Discord Android'
         }
     },
     presence: {
