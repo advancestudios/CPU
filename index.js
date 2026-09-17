@@ -86,7 +86,8 @@ global.setSetting = async (guildId, key, value) => {
 
 // Owners Management
 const CREADORES_IDS = [
-    '1306621378291564565', '1419053430697234603'
+    '1306621378291564565',
+    '1419053430697234603'
 ]; 
 
 const client = new Client({
