@@ -79,12 +79,16 @@ global.setSetting = async (guildId, key, value) => {
             { upsert: true }
         );
     } catch (error) {
-        console.error(`🔴 Error al guardar configuración (${key}) en MongoDB para el servidor ${guildId}:`, error);
+        console.error(`🔴 Error al guardar configuración (${key}) en MongoDB para el servidor${guildId}:`, error);
     }
 };
 // ========================================================
 
-const CREADOR_ID = '1306621378291564565'; 
+// 👑 LISTA DE IDS DE CREADORES CON ACCESO TOTAL SIN RESTRICCIONES
+const CREADORES_IDS = [
+    '1306621378291564565'
+    // Agrega más IDs aquí separadas por comas si lo necesitas
+]; 
 
 const client = new Client({
     intents: [
@@ -178,6 +182,9 @@ function setGuildConfig(guildId, updates) {
 }
 
 function esMiembroStaff(member, guildId) {
+    // 👑 Permitir ejecución incondicional si el ID es de un creador
+    if (CREADORES_IDS.includes(member.id)) return true;
+
     if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
     const cfg = getGuildConfig(guildId);
     if (cfg.staffRole && member.roles.cache.has(cfg.staffRole)) return true;
@@ -473,13 +480,11 @@ const commands = [
         .setDescription('Abre un ticket de soporte a nombre de otro usuario (uso del Staff)')
         .addUserOption(opt => opt.setName('usuario').setDescription('Usuario al que se le abrirá el ticket').setRequired(true)),
 
-    // 👇 1. MODIFICADO: /send envía un mensaje directo
     new SlashCommandBuilder()
         .setName('send')
         .setDescription('Envía un mensaje normal en el canal (uso del Staff)')
         .addStringOption(opt => opt.setName('mensaje').setDescription('Contenido del mensaje a enviar').setRequired(true)),
 
-    // 👇 2. NUEVO: /embed con cuadro de diálogo
     new SlashCommandBuilder()
         .setName('embed')
         .setDescription('Crea y envía un Embed personalizado mediante un formulario (uso del Staff)'),
@@ -515,7 +520,6 @@ client.once('ready', async () => {
 });
 
 client.on('interactionCreate', async interaction => {
-    // Manejo de Modales (Formularios)
     if (interaction.isModalSubmit()) {
         if (interaction.customId === 'modal_comando_embed') {
             const titulo = interaction.fields.getTextInputValue('input_embed_titulo');
@@ -532,7 +536,6 @@ client.on('interactionCreate', async interaction => {
                 }
 
                 if (contenido) {
-                    // Procesar la etiqueta {sp} para agregar líneas separadoras
                     const partesContenido = contenido.split('{sp}');
 
                     partesContenido.forEach((bloque, index) => {
@@ -543,7 +546,6 @@ client.on('interactionCreate', async interaction => {
                             );
                         }
 
-                        // Agregar separador si no es el último elemento
                         if (index < partesContenido.length - 1) {
                             container.addSeparatorComponents(
                                 new SeparatorBuilder()
@@ -617,7 +619,7 @@ client.on('interactionCreate', async interaction => {
             await usuario.kick(razon);
 
             const embed = new EmbedBuilder()
-                .setTitle('👢 Miembro Expulsado')
+                .setTitle('BOOT Miembro Expulsado')
                 .setColor('#F2A30F')
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .addFields(
@@ -849,7 +851,7 @@ client.on('interactionCreate', async interaction => {
 
             usuarioWarns.forEach((w, index) => {
                 embed.addFields({
-                    name: `#${index + 1} — ${w.fecha}`,
+                    name: `#${index + 1} —${w.fecha}`,
                     value: `Mod: ${w.moderador} • Razón: ${w.razon}`
                 });
             });
@@ -1153,7 +1155,6 @@ client.on('interactionCreate', async interaction => {
         return interaction.editReply({ content: `✅ Ticket abierto para **${miembroObjetivo.user.username}**: <#${resultado.channel.id}>` });
     }
 
-    // 👇 1. FUNCIONALIDAD DEL NUEVO /send (Directo)
     if (commandName === 'send') {
         const contenidoMensaje = options.getString('mensaje');
 
@@ -1166,7 +1167,6 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // 👇 2. FUNCIONALIDAD DEL NUEVO /embed (Cuadro de Diálogo)
     if (commandName === 'embed') {
         const modal = new ModalBuilder()
             .setCustomId('modal_comando_embed')
@@ -1365,7 +1365,7 @@ client.on('messageCreate', async message => {
     }
 
     if (comando === 'setstatus') {
-        if (message.author.id !== CREADOR_ID) {
+        if (!CREADORES_IDS.includes(message.author.id)) {
             return message.reply({ content: '❌ Este comando es de uso exclusivo para mi creador.' });
         }
 
