@@ -84,10 +84,10 @@ global.setSetting = async (guildId, key, value) => {
 };
 // ========================================================
 
-// 👑 LISTA DE IDS DE CREADORES CON ACCESO TOTAL SIN RESTRICCIONES
+// Owners Management
 const CREADORES_IDS = [
     '1306621378291564565'
-    // Agrega más IDs aquí separadas por comas si lo necesitas
+    '1419053430697234603'
 ]; 
 
 const client = new Client({
