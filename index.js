@@ -38,7 +38,19 @@ const ServerSchema = new mongoose.Schema({
     settings: { type: Map, of: mongoose.Schema.Types.Mixed, default: {} } 
 });
 
+const WarnSchema = new mongoose.Schema({
+    key: { type: String, required: true, unique: true }, // guildId-userId
+    warns: [
+        {
+            moderador: String,
+            razon: String,
+            fecha: String
+        }
+    ]
+});
+
 const ServerModel = mongoose.model('Server', ServerSchema);
+const WarnModel = mongoose.model('Warn', WarnSchema);
 
 global.botCache = new Map();
 
@@ -123,7 +135,6 @@ if (!TOKEN || !CLIENT_ID) {
     process.exit(1);
 }
 
-const ARCHIVO_WARNS = path.join(__dirname, 'warns.json');
 const ARCHIVO_CONFIG = path.join(__dirname, 'config.json');
 
 const BOT_INVITE_PERMISSIONS = new PermissionsBitField([
@@ -152,7 +163,6 @@ app.listen(PORT, () => {
     console.log(`🌐 [CPU v2] Servidor web de monitoreo activo en el puerto ${PORT}`);
 });
 
-if (!fs.existsSync(ARCHIVO_WARNS)) fs.writeFileSync(ARCHIVO_WARNS, JSON.stringify({}), 'utf8');
 if (!fs.existsSync(ARCHIVO_CONFIG)) fs.writeFileSync(ARCHIVO_CONFIG, JSON.stringify({}), 'utf8');
 
 function obtenerConfig() {
@@ -182,9 +192,7 @@ function setGuildConfig(guildId, updates) {
 }
 
 function esMiembroStaff(member, guildId) {
-    // 👑 Permitir ejecución incondicional si el ID es de un creador
     if (CREADORES_IDS.includes(member.id)) return true;
-
     if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
     const cfg = getGuildConfig(guildId);
     if (cfg.staffRole && member.roles.cache.has(cfg.staffRole)) return true;
@@ -777,23 +785,20 @@ client.on('interactionCreate', async interaction => {
         if (usuario.user.bot) return interaction.reply({ content: '❌ Los perfiles automatizados (bots) no pueden recibir amonestaciones.', ephemeral: true });
 
         try {
-            let listaWarns = {};
-            try {
-                listaWarns = JSON.parse(fs.readFileSync(ARCHIVO_WARNS, 'utf8'));
-            } catch (e) {
-                listaWarns = {};
-            }
-
-            if (!listaWarns[warnKey(guild.id, usuario.id)]) listaWarns[warnKey(guild.id, usuario.id)] = [];
-
-            listaWarns[warnKey(guild.id, usuario.id)].push({
+            const idWarn = warnKey(guild.id, usuario.id);
+            const nuevaAdvertencia = {
                 moderador: user.tag,
                 razon: razon,
                 fecha: new Date().toLocaleDateString()
-            });
+            };
 
-            fs.writeFileSync(ARCHIVO_WARNS, JSON.stringify(listaWarns, null, 2), 'utf8');
-            const totalWarns = listaWarns[warnKey(guild.id, usuario.id)].length;
+            const registro = await WarnModel.findOneAndUpdate(
+                { key: idWarn },
+                { $push: { warns: nuevaAdvertencia } },
+                { new: true, upsert: true }
+            );
+
+            const totalWarns = registro.warns.length;
 
             const embed = new EmbedBuilder()
                 .setTitle('⚠️ Miembro Advertido')
@@ -811,73 +816,73 @@ client.on('interactionCreate', async interaction => {
             return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
             console.error('Error en /warn:', error);
-            return interaction.reply({ content: '❌ Ocurrió un error al registrar la advertencia.', ephemeral: true });
+            return interaction.reply({ content: '❌ Ocurrió un error al registrar la advertencia en MongoDB.', ephemeral: true });
         }
     }
 
     if (commandName === 'warns') {
         if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
         const sub = options.getSubcommand();
+        const idWarn = warnKey(guild.id, usuario.id);
 
-        let listaWarns = {};
         try {
-            listaWarns = JSON.parse(fs.readFileSync(ARCHIVO_WARNS, 'utf8'));
-        } catch (e) {
-            listaWarns = {};
-        }
+            const registroWarns = await WarnModel.findOne({ key: idWarn });
+            const usuarioWarns = registroWarns ? registroWarns.warns : [];
 
-        if (sub === 'view') {
-            const usuarioWarns = listaWarns[warnKey(guild.id, usuario.id)] || [];
-            const embed = new EmbedBuilder()
-                .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
-                .setTimestamp();
+            if (sub === 'view') {
+                const embed = new EmbedBuilder()
+                    .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
+                    .setTimestamp();
 
-            if (usuarioWarns.length === 0) {
+                if (usuarioWarns.length === 0) {
+                    embed.setTitle('📋 Historial de Advertencias')
+                         .setColor('#57F287')
+                         .addFields(
+                            { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
+                            { name: 'Estado', value: 'Sin advertencias', inline: true }
+                         );
+                    return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
+                }
+
                 embed.setTitle('📋 Historial de Advertencias')
-                     .setColor('#57F287')
+                     .setColor('#F2A30F')
                      .addFields(
                         { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
-                        { name: 'Estado', value: 'Sin advertencias', inline: true }
+                        { name: 'Total', value: `${usuarioWarns.length}`, inline: true }
                      );
+
+                usuarioWarns.forEach((w, index) => {
+                    embed.addFields({
+                        name: `#${index + 1} —${w.fecha}`,
+                        value: `Mod: ${w.moderador} • Razón: ${w.razon}`
+                    });
+                });
+
                 return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
             }
 
-            embed.setTitle('📋 Historial de Advertencias')
-                 .setColor('#F2A30F')
-                 .addFields(
-                    { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
-                    { name: 'Total', value: `${usuarioWarns.length}`, inline: true }
-                 );
+            if (sub === 'clear') {
+                if (usuarioWarns.length === 0) {
+                    return interaction.reply({ content: `ℹ️ **${usuario.user.username}** ya no tiene advertencias registradas.`, ephemeral: true });
+                }
 
-            usuarioWarns.forEach((w, index) => {
-                embed.addFields({
-                    name: `#${index + 1} —${w.fecha}`,
-                    value: `Mod: ${w.moderador} • Razón: ${w.razon}`
-                });
-            });
+                await WarnModel.deleteOne({ key: idWarn });
 
-            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
-        }
+                const embed = new EmbedBuilder()
+                    .setTitle('🧹 Historial Limpiado')
+                    .setColor('#57F287')
+                    .addFields(
+                        { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
+                        { name: 'Moderador', value: `${user.username}`, inline: true }
+                    )
+                    .setFooter({ text: 'CPU v2' })
+                    .setTimestamp();
 
-        if (sub === 'clear') {
-            if (!listaWarns[warnKey(guild.id, usuario.id)] || listaWarns[warnKey(guild.id, usuario.id)].length === 0) {
-                return interaction.reply({ content: `ℹ️ **${usuario.user.username}** ya no tiene advertencias registradas.`, ephemeral: true });
+                return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
             }
-
-            delete listaWarns[warnKey(guild.id, usuario.id)];
-            fs.writeFileSync(ARCHIVO_WARNS, JSON.stringify(listaWarns, null, 2), 'utf8');
-
-            const embed = new EmbedBuilder()
-                .setTitle('🧹 Historial Limpiado')
-                .setColor('#57F287')
-                .addFields(
-                    { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
-                    { name: 'Moderador', value: `${user.username}`, inline: true }
-                )
-                .setFooter({ text: 'CPU v2' })
-                .setTimestamp();
-
-            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
+        } catch (error) {
+            console.error('Error en /warns:', error);
+            return interaction.reply({ content: '❌ Ocurrió un error al procesar la solicitud con MongoDB.', ephemeral: true });
         }
     }
 
