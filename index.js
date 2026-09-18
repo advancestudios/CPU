@@ -224,13 +224,13 @@ function embedToContainer(embed) {
     }
 
     if (data.fields && data.fields.length) {
-        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
+        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.None).setDivider(true));
         const textoCampos = data.fields.map(f => `**${f.name}**\n${f.value}`).join('\n\n');
         container.addTextDisplayComponents(new TextDisplayBuilder().setContent(textoCampos));
     }
 
     if (data.footer && data.footer.text) {
-        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false));
+        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.None).setDivider(false));
         container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${data.footer.text}`));
     }
 
@@ -537,16 +537,23 @@ client.on('interactionCreate', async interaction => {
             try {
                 const container = new ContainerBuilder().setAccentColor(0x5865F2);
 
+                // 1. Título principal
                 if (titulo) {
                     container.addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(`# ${titulo}`)
                     );
+                    container.addSeparatorComponents(
+                        new SeparatorBuilder()
+                            .setSpacing(SeparatorSpacingSize.None)
+                            .setDivider(true)
+                    );
                 }
 
+                // 2. Contenido dividido por {sp}
                 if (contenido) {
-                    const partesContenido = contenido.split('{sp}');
+                    const bloques = contenido.split('{sp}');
 
-                    partesContenido.forEach((bloque, index) => {
+                    bloques.forEach((bloque, index) => {
                         const textoLimpio = bloque.trim();
                         if (textoLimpio.length > 0) {
                             container.addTextDisplayComponents(
@@ -554,21 +561,22 @@ client.on('interactionCreate', async interaction => {
                             );
                         }
 
-                        if (index < partesContenido.length - 1) {
+                        if (index < bloques.length - 1) {
                             container.addSeparatorComponents(
                                 new SeparatorBuilder()
-                                    .setSpacing(SeparatorSpacingSize.Large)
+                                    .setSpacing(SeparatorSpacingSize.None)
                                     .setDivider(true)
                             );
                         }
                     });
                 }
 
+                // 3. Pie de página (Footer)
                 if (footer) {
                     container.addSeparatorComponents(
                         new SeparatorBuilder()
-                            .setSpacing(SeparatorSpacingSize.Small)
-                            .setDivider(false)
+                            .setSpacing(SeparatorSpacingSize.None)
+                            .setDivider(true)
                     );
                     container.addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(`-# ${footer}`)
