@@ -549,18 +549,35 @@ client.on('interactionCreate', async interaction => {
                     );
                 }
 
-                // 2. Contenido reemplazando {sp} por un carácter invisible de Unicode (\u200B)
+                // 2. Procesamiento del contenido con {sp} y saltos de línea múltiples
                 if (contenido && contenido.trim().length > 0) {
-                    const bloques = contenido
-                        .split('{sp}')
-                        .map(b => b.trim().length === 0 ? '\u200B' : b.trim());
+                    // Dividimos en bloques por la etiqueta {sp} (que crea divisores con línea visible)
+                    const bloquesSp = contenido.split('{sp}');
 
-                    bloques.forEach((bloque, index) => {
-                        container.addTextDisplayComponents(
-                            new TextDisplayBuilder().setContent(bloque)
-                        );
+                    bloquesSp.forEach((bloque, indexSp) => {
+                        // Dentro de cada bloque {sp}, procesamos los párrafos por salto de línea doble (Enter dos veces)
+                        const lineas = bloque.split(/\n\s*\n/);
 
-                        if (index < bloques.length - 1) {
+                        lineas.forEach((linea, indexLinea) => {
+                            const textoLimpio = linea.trim();
+                            if (textoLimpio.length > 0) {
+                                container.addTextDisplayComponents(
+                                    new TextDisplayBuilder().setContent(textoLimpio)
+                                );
+
+                                // Si hay más párrafos dentro del mismo bloque {sp}, añadimos un separador sin línea visible
+                                if (indexLinea < lineas.length - 1) {
+                                    container.addSeparatorComponents(
+                                        new SeparatorBuilder()
+                                            .setSpacing(SeparatorSpacingSize.None)
+                                            .setDivider(false)
+                                    );
+                                }
+                            }
+                        });
+
+                        // Si hay más bloques separados por {sp}, añadimos un separador con línea divisoria visible
+                        if (indexSp < bloquesSp.length - 1) {
                             container.addSeparatorComponents(
                                 new SeparatorBuilder()
                                     .setSpacing(SeparatorSpacingSize.None)
