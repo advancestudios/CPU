@@ -538,9 +538,9 @@ client.on('interactionCreate', async interaction => {
                 const container = new ContainerBuilder().setAccentColor(0x5865F2);
 
                 // 1. Título principal
-                if (titulo) {
+                if (titulo && titulo.trim().length > 0) {
                     container.addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(`# ${titulo}`)
+                        new TextDisplayBuilder().setContent(`# ${titulo.trim()}`)
                     );
                     container.addSeparatorComponents(
                         new SeparatorBuilder()
@@ -549,17 +549,16 @@ client.on('interactionCreate', async interaction => {
                     );
                 }
 
-                // 2. Contenido dividido por {sp}
-                if (contenido) {
-                    const bloques = contenido.split('{sp}');
+                // 2. Contenido reemplazando {sp} por un carácter invisible de Unicode (\u200B)
+                if (contenido && contenido.trim().length > 0) {
+                    const bloques = contenido
+                        .split('{sp}')
+                        .map(b => b.trim().length === 0 ? '\u200B' : b.trim());
 
                     bloques.forEach((bloque, index) => {
-                        const textoLimpio = bloque.trim();
-                        if (textoLimpio.length > 0) {
-                            container.addTextDisplayComponents(
-                                new TextDisplayBuilder().setContent(textoLimpio)
-                            );
-                        }
+                        container.addTextDisplayComponents(
+                            new TextDisplayBuilder().setContent(bloque)
+                        );
 
                         if (index < bloques.length - 1) {
                             container.addSeparatorComponents(
@@ -572,14 +571,14 @@ client.on('interactionCreate', async interaction => {
                 }
 
                 // 3. Pie de página (Footer)
-                if (footer) {
+                if (footer && footer.trim().length > 0) {
                     container.addSeparatorComponents(
                         new SeparatorBuilder()
                             .setSpacing(SeparatorSpacingSize.None)
                             .setDivider(true)
                     );
                     container.addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(`-# ${footer}`)
+                        new TextDisplayBuilder().setContent(`-# ${footer.trim()}`)
                     );
                 }
 
