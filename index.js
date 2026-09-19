@@ -530,25 +530,70 @@ client.once('ready', async () => {
 client.on('interactionCreate', async interaction => {
     if (interaction.isModalSubmit()) {
         if (interaction.customId === 'modal_comando_embed') {
-            const titulo = interaction.fields.getTextInputValue('input_embed_titulo');
-            const contenido = interaction.fields.getTextInputValue('input_embed_contenido');
-            const footer = interaction.fields.getTextInputValue('input_embed_footer');
+    const titulo = interaction.fields.getTextInputValue('input_embed_titulo')?.trim();
+    const contenido = interaction.fields.getTextInputValue('input_embed_contenido')?.trim();
+    const footer = interaction.fields.getTextInputValue('input_embed_footer')?.trim();
 
-            try {
-                const container = new ContainerBuilder().setAccentColor(0x5865F2);
+    try {
+        const container = new ContainerBuilder().setAccentColor(0x5865F2);
 
-                // 1. Título principal
-                if (titulo && titulo.trim().length > 0) {
+        // 1. Título
+        if (titulo) {
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(`## ${titulo}`)
+            );
+        }
+
+        // 2. Contenido con divisores {sp}
+        if (contenido) {
+            // Añadimos un separador inicial si ya existía un título
+            if (titulo) {
+                container.addSeparatorComponents(
+                    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+                );
+            }
+
+            const bloquesSp = contenido.split('{sp}');
+
+            bloquesSp.forEach((bloque, indexSp) => {
+                const textoBloque = bloque.trim();
+                
+                if (textoBloque.length > 0) {
                     container.addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(`# ${titulo.trim()}`)
-                    );
-                    container.addSeparatorComponents(
-                        new SeparatorBuilder()
-                            .setSpacing(SeparatorSpacingSize.None)
-                            .setDivider(true)
+                        new TextDisplayBuilder().setContent(textoBloque)
                     );
                 }
 
+                // Añadir línea divisoria si NO es el último bloque de {sp}
+                if (indexSp < bloquesSp.length - 1) {
+                    container.addSeparatorComponents(
+                        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+                    );
+                }
+            });
+        }
+
+        // 3. Footer
+        if (footer) {
+            container.addSeparatorComponents(
+                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+            );
+            container.addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(`-# ${footer}`)
+            );
+        }
+
+        await interaction.channel.send({
+            components: [container],
+            flags: MessageFlags.IsComponentsV2
+        });
+
+        return await interaction.reply({ content: '✅ Embed enviado con éxito.', ephemeral: true });
+    } catch (error) {
+        console.error('Error al construir/enviar el embed personalizado:', error);
+        return interaction.reply({ content: '❌ Error al enviar el Embed. Revisa la consola para más detalles.', ephemeral: true }).catch(() => {});
+    }
+}
                 // 2. Procesamiento del contenido con {sp} y saltos de línea múltiples
                 if (contenido && contenido.trim().length > 0) {
                     // Dividimos en bloques por la etiqueta {sp} (que crea divisores con línea visible)
