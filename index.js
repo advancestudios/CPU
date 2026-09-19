@@ -224,13 +224,13 @@ function embedToContainer(embed) {
     }
 
     if (data.fields && data.fields.length) {
-        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.None).setDivider(true));
+        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true));
         const textoCampos = data.fields.map(f => `**${f.name}**\n${f.value}`).join('\n\n');
         container.addTextDisplayComponents(new TextDisplayBuilder().setContent(textoCampos));
     }
 
     if (data.footer && data.footer.text) {
-        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.None).setDivider(false));
+        container.addSeparatorComponents(new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false));
         container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${data.footer.text}`));
     }
 
@@ -537,50 +537,32 @@ client.on('interactionCreate', async interaction => {
             try {
                 const container = new ContainerBuilder().setAccentColor(0x5865F2);
 
-                // 1. Título principal
+                // 1. Título principal (sin separador propio: no mete espacio de más)
                 if (titulo && titulo.trim().length > 0) {
                     container.addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(`# ${titulo.trim()}`)
                     );
-                    container.addSeparatorComponents(
-                        new SeparatorBuilder()
-                            .setSpacing(SeparatorSpacingSize.None)
-                            .setDivider(true)
-                    );
                 }
 
-                // 2. Procesamiento del contenido con {sp} y saltos de línea múltiples
+                // 2. Contenido: cada bloque separado por {sp} es UN SOLO TextDisplay
+                // (así no queda espacio entre líneas dentro del mismo bloque).
+                // {sp} es el único que genera una línea divisoria visible entre bloques.
                 if (contenido && contenido.trim().length > 0) {
-                    // Dividimos en bloques por la etiqueta {sp} (que crea divisores con línea visible)
-                    const bloquesSp = contenido.split('{sp}');
+                    const bloques = contenido.split('{sp}');
 
-                    bloquesSp.forEach((bloque, indexSp) => {
-                        // Dentro de cada bloque {sp}, procesamos los párrafos por salto de línea doble (Enter dos veces)
-                        const lineas = bloque.split(/\n\s*\n/);
+                    bloques.forEach((bloque, index) => {
+                        const textoLimpio = bloque.trim();
+                        if (textoLimpio.length > 0) {
+                            container.addTextDisplayComponents(
+                                new TextDisplayBuilder().setContent(textoLimpio)
+                            );
+                        }
 
-                        lineas.forEach((linea, indexLinea) => {
-                            const textoLimpio = linea.trim();
-                            if (textoLimpio.length > 0) {
-                                container.addTextDisplayComponents(
-                                    new TextDisplayBuilder().setContent(textoLimpio)
-                                );
-
-                                // Si hay más párrafos dentro del mismo bloque {sp}, añadimos un separador sin línea visible
-                                if (indexLinea < lineas.length - 1) {
-                                    container.addSeparatorComponents(
-                                        new SeparatorBuilder()
-                                            .setSpacing(SeparatorSpacingSize.None)
-                                            .setDivider(false)
-                                    );
-                                }
-                            }
-                        });
-
-                        // Si hay más bloques separados por {sp}, añadimos un separador con línea divisoria visible
-                        if (indexSp < bloquesSp.length - 1) {
+                        // Línea divisoria SOLO entre bloques separados por {sp}
+                        if (index < bloques.length - 1) {
                             container.addSeparatorComponents(
                                 new SeparatorBuilder()
-                                    .setSpacing(SeparatorSpacingSize.None)
+                                    .setSpacing(SeparatorSpacingSize.Small)
                                     .setDivider(true)
                             );
                         }
@@ -591,7 +573,7 @@ client.on('interactionCreate', async interaction => {
                 if (footer && footer.trim().length > 0) {
                     container.addSeparatorComponents(
                         new SeparatorBuilder()
-                            .setSpacing(SeparatorSpacingSize.None)
+                            .setSpacing(SeparatorSpacingSize.Small)
                             .setDivider(true)
                     );
                     container.addTextDisplayComponents(
