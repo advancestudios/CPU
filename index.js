@@ -39,7 +39,7 @@ const client = new Client({
     presence: {
         status: 'online',
         activities: [{
-            name: '¡En vivo en Twitch!',
+            name: 'Cooking up a new update...',
             type: ActivityType.Streaming,
             url: 'https://www.twitch.tv/discord'
         }]
