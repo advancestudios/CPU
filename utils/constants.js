@@ -4,8 +4,8 @@ const PREFIX = ';';
 
 // IDs de los creadores del bot (acceso a comandos exclusivos como ;setstatus)
 const CREADORES_IDS = [
-    '1306621378291564565',
-    '1419053430697234603'
+    '1306621378291564565', // @cpu.os
+    '1419053430697234603' // @kukumeyers
 ];
 
 const BOT_INVITE_PERMISSIONS = new PermissionsBitField([
