@@ -15,7 +15,7 @@ module.exports = {
             await comando.execute(message, args);
         } catch (error) {
             console.error(`Error al ejecutar ;${nombreComando}:`, error);
-            message.reply({ content: '❌ Ocurrió un error inesperado al ejecutar este comando.' }).catch(() => {});
+            message.reply({ content: '💥 Ocurrió un error al ejecutar este comando.' }).catch(() => {});
         }
     }
 };
