@@ -38,7 +38,7 @@ module.exports = {
 
         if (comando.requiereStaff) {
             if (!esMiembroStaff(interaction.member, interaction.guild.id)) {
-                return interaction.reply({ content: '❌ Acceso denegado: Necesitas el rol de Staff o permisos de Administrador para usar este comando.', ephemeral: true });
+                return interaction.reply({ content: '❌ Acceso denegado: Necesitas permisos de Administrador para usar este comando.', ephemeral: true });
             }
         }
 
