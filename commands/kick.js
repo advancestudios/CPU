@@ -21,7 +21,7 @@ module.exports = {
             await usuario.kick(razon);
 
             const embed = new EmbedBuilder()
-                .setTitle('👢 Miembro Expulsado')
+                .setTitle('<:kick_icon:1552295636144103506> Miembro Expulsado')
                 .setColor('#F2A30F')
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .addFields(
