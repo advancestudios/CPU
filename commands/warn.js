@@ -36,7 +36,7 @@ module.exports = {
             const totalWarns = registro.warns.length;
 
             const embed = new EmbedBuilder()
-                .setTitle('⚠️ Miembro Advertido')
+                .setTitle('<:warn_icon:1552150324154998804> Miembro Advertido')
                 .setColor('#ED4245')
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .addFields(
