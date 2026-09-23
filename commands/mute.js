@@ -35,7 +35,7 @@ module.exports = {
             await usuario.timeout(minutes * 60 * 1000, razon);
 
             const embed = new EmbedBuilder()
-                .setTitle('🔇 Miembro Silenciado')
+                .setTitle('<:mute_icon:1552296754991341578> Miembro Silenciado')
                 .setColor('#FEE75C')
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .addFields(
