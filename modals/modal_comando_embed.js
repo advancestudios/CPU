@@ -8,7 +8,7 @@ module.exports = {
         const footer = interaction.fields.getTextInputValue('input_embed_footer');
 
         try {
-            const container = new ContainerBuilder().setAccentColor(#00000000);
+            const container = new ContainerBuilder().setAccentColor(00000000);
 
             // 1. Título principal (sin separador propio: no mete espacio de más)
             if (titulo && titulo.trim().length > 0) {
