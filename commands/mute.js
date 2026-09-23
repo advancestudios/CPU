@@ -36,7 +36,7 @@ module.exports = {
 
             const embed = new EmbedBuilder()
                 .setTitle('<:mute_icon:1552296754991341578> Miembro Silenciado')
-                .setColor('#FEE75C')
+                .setColor('#ff8400')
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .addFields(
                     { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
