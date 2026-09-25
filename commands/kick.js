@@ -22,7 +22,6 @@ module.exports = {
 
             const embed = new EmbedBuilder()
                 .setTitle('<:kick_icon:1552295636144103506> Miembro Expulsado')
-                .setColor('#ff6f00')
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .addFields(
                     { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
