@@ -37,7 +37,6 @@ module.exports = {
 
             const embed = new EmbedBuilder()
                 .setTitle('<:warn_icon:1552150324154998804> Miembro Advertido')
-                .setColor('#ffae00')
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .addFields(
                     { name: 'Miembro Advertido', value: `${usuario.user.username}`, inline: true },
