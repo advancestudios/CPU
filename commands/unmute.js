@@ -20,7 +20,6 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle('🔊 Silencio Removido')
-            .setColor('#57F287')
             .addFields(
                 { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
                 { name: 'Moderador', value: `${user.username}`, inline: true }
