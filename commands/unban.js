@@ -16,7 +16,6 @@ module.exports = {
 
             const embed = new EmbedBuilder()
                 .setTitle('✅ Baneo Revocado')
-                .setColor('#57F287')
                 .addFields(
                     { name: 'ID Revocado', value: `${userId}`, inline: true },
                     { name: 'Moderador', value: `${user.username}`, inline: true }
