@@ -25,7 +25,6 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle('<:ban_icon:1552047267920478278> Miembro Baneado')
-            .setColor('#ff1e00')
             .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
             .addFields(
                 { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
