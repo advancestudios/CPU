@@ -34,7 +34,7 @@ module.exports = {
             );
 
             const totalWarns = registro.warns.length;
-
+// Embed Warn
             const embed = new EmbedBuilder()
                 .setTitle('<:warn_icon:1552150324154998804> Miembro Advertido')
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
