@@ -8,7 +8,7 @@ module.exports = {
         const { guild, member, channel } = interaction;
 
         if (!esMiembroStaff(member, guild.id)) {
-            return interaction.reply({ content: '❌ No tienes permiso para tomar este ticket.', ephemeral: true });
+            return interaction.reply({ content: '<:x_icon:1553581267600146483> No tienes permiso para tomar este ticket.', ephemeral: true });
         }
 
         const topic = channel.topic || '';
@@ -24,7 +24,7 @@ module.exports = {
             return interaction.update({ components: [embedToContainer(embedActualizado), filaSoloCerrar], flags: MessageFlags.IsComponentsV2 });
         } catch (e) {
             console.error('Error al tomar ticket:', e);
-            return interaction.reply({ content: '❌ No pude actualizar el ticket.', ephemeral: true });
+            return interaction.reply({ content: '<:x_icon:1553581267600146483> No pude actualizar el ticket.', ephemeral: true });
         }
     }
 };
