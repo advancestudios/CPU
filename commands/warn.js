@@ -16,8 +16,8 @@ module.exports = {
         const usuario = options.getMember('usuario');
         const razon = options.getString('razon') || 'Ninguna especificada.';
 
-        if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
-        if (usuario.user.bot) return interaction.reply({ content: '❌ Los perfiles automatizados (bots) no pueden recibir amonestaciones.', ephemeral: true });
+        if (!usuario) return interaction.reply({ content: '<:x_icon:1553581267600146483> El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
+        if (usuario.user.bot) return interaction.reply({ content: '<:x_icon:1553581267600146483> Los perfiles automatizados (bots) no pueden recibir amonestaciones.', ephemeral: true });
 
         try {
             const idWarn = warnKey(guild.id, usuario.id);
@@ -34,7 +34,7 @@ module.exports = {
             );
 
             const totalWarns = registro.warns.length;
-// Embed Warn
+
             const embed = new EmbedBuilder()
                 .setTitle('<:warn_icon:1552150324154998804> Miembro Advertido')
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
@@ -50,7 +50,7 @@ module.exports = {
             return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
             console.error('Error en /warn:', error);
-            return interaction.reply({ content: '❌ Ocurrió un error al registrar la advertencia en MongoDB.', ephemeral: true });
+            return interaction.reply({ content: '<:x_icon:1553581267600146483> Ocurrió un error al registrar la advertencia en MongoDB.', ephemeral: true });
         }
     }
 };
