@@ -27,9 +27,9 @@ module.exports = {
         const usuario = options.getMember('usuario');
         const razon = options.getString('razon') || 'Ninguna especificada.';
 
-        if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
+        if (!usuario) return interaction.reply({ content: '<:x_icon:1553581267600146483> El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
         const minutes = options.getInteger('minutos');
-        if (!usuario.moderatable) return interaction.reply({ content: '❌ Operación denegada: Imposible aplicar aislamiento a este rango.', ephemeral: true });
+        if (!usuario.moderatable) return interaction.reply({ content: '<:x_icon:1553581267600146483> Operación denegada: Imposible aplicar aislamiento a este rango.', ephemeral: true });
 
         try {
             await usuario.timeout(minutes * 60 * 1000, razon);
@@ -50,7 +50,7 @@ module.exports = {
             return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
             console.error('Error en /mute:', error);
-            return interaction.reply({ content: '❌ Ocurrió un error al intentar silenciar al miembro.', ephemeral: true });
+            return interaction.reply({ content: '<:x_icon:1553581267600146483> Ocurrió un error al intentar silenciar al miembro.', ephemeral: true });
         }
     }
 };
