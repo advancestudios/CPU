@@ -15,17 +15,17 @@ const { embedToContainer, construirEmbedTicket } = require('./embeds');
 async function crearTicket(guild, member, abiertoPor) {
     const cfg = getGuildConfig(guild.id);
     if (!cfg.ticketsCategory) {
-        return { ok: false, motivo: '⚠️ El sistema de tickets no ha sido configurado. Pide a un administrador usar `/setup tickets`.' };
+        return { ok: false, motivo: '<:warn_icon:1552150324154998804> El sistema de tickets no ha sido configurado. Pide a un administrador usar `/setup tickets`.' };
     }
 
     const categoria = guild.channels.cache.get(cfg.ticketsCategory);
     if (!categoria) {
-        return { ok: false, motivo: '⚠️ La categoría configurada ya no existe. Pide a un administrador reconfigurarla con `/setup tickets`.' };
+        return { ok: false, motivo: '<:warn_icon:1552150324154998804> La categoría configurada ya no existe. Pide a un administrador reconfigurarla con `/setup tickets`.' };
     }
 
     const ticketExistente = categoria.children.cache.find(c => c.topic === `ticket-owner:${member.id}`);
     if (ticketExistente) {
-        return { ok: false, motivo: `⚠️ Ese usuario ya tiene un ticket abierto: <#${ticketExistente.id}>`, canalExistente: ticketExistente };
+        return { ok: false, motivo: `<:warn_icon:1552150324154998804> Ese usuario ya tiene un ticket abierto: <#${ticketExistente.id}>`, canalExistente: ticketExistente };
     }
 
     const nombreBase = member.user.username.toLowerCase().replace(/[^a-z0-9]/g, '') || member.id;
@@ -60,7 +60,7 @@ async function crearTicket(guild, member, abiertoPor) {
         });
     } catch (error) {
         console.error('Error al crear canal de ticket:', error);
-        return { ok: false, motivo: '❌ No pude crear el canal del ticket. Revisa mis permisos de Gestionar Canales.' };
+        return { ok: false, motivo: '<:x_icon:1553581267600146483> No pude crear el canal del ticket. Revisa mis permisos de Gestionar Canales.' };
     }
 
     const abiertoPorStaff = abiertoPor && abiertoPor.id !== member.id;
