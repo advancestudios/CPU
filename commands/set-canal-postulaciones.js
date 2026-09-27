@@ -17,7 +17,6 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle('⚙️ Canal Configurado')
-            .setColor('#57F287')
             .addFields({ name: 'Canal de Postulaciones', value: `<#${canalTexto.id}>` })
             .setFooter({ text: 'CPU v2' })
             .setTimestamp();
