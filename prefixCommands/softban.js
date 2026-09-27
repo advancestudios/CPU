@@ -6,16 +6,16 @@ module.exports = {
     name: 'softban',
     async execute(message, args) {
         if (!esMiembroStaff(message.member, message.guild.id)) {
-            return message.reply({ content: '❌ Acceso denegado: Requieres ser Staff o tener permisos de Administrador.' });
+            return message.reply({ content: '<:x_icon:1553581267600146483> Acceso denegado: Requieres ser Staff o tener permisos de Administrador.' });
         }
 
         const usuario = message.mentions.members.first() || message.guild.members.cache.get(args[0]);
         if (!usuario) {
-            return message.reply({ content: '⚠️ **Uso correcto:** `;softban @usuario [segundos_borrado] [razón]`' });
+            return message.reply({ content: '<:warn_icon:1552150324154998804> **Uso correcto:** `;softban @usuario [segundos_borrado] [razón]`' });
         }
 
         if (!usuario.bannable) {
-            return message.reply({ content: '❌ Operación denegada: El miembro posee inmunidad o un rol superior.' });
+            return message.reply({ content: '<:x_icon:1553581267600146483> Operación denegada: El miembro posee inmunidad o un rol superior.' });
         }
 
         let segundosBorrar = parseInt(args[1], 10);
@@ -32,7 +32,6 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle('🧹 Miembro Expulsado (Softban)')
-            .setColor('#ED4245')
             .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
             .addFields(
                 { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
@@ -50,7 +49,7 @@ module.exports = {
             return message.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
             console.error('Error al ejecutar softban por prefijo:', error);
-            return message.reply({ content: '❌ Ocurrió un error al intentar aplicar el softban.' });
+            return message.reply({ content: '<:x_icon:1553581267600146483> Ocurrió un error al intentar aplicar el softban.' });
         }
     }
 };
