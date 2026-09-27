@@ -13,10 +13,10 @@ module.exports = {
 
         try {
             await channel.send({ content: contenidoMensaje });
-            return interaction.reply({ content: '✅ Mensaje enviado con éxito.', ephemeral: true });
+            return interaction.reply({ content: '<:check_icon:1553581296398114846> Mensaje enviado con éxito.', ephemeral: true });
         } catch (error) {
             console.error('Error en /send:', error);
-            return interaction.reply({ content: '❌ No pude enviar el mensaje en este canal.', ephemeral: true });
+            return interaction.reply({ content: '<:x_icon:1553581267600146483> No pude enviar el mensaje en este canal.', ephemeral: true });
         }
     }
 };
