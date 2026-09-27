@@ -34,7 +34,6 @@ module.exports = {
 
             const embed = new EmbedBuilder()
                 .setTitle('⚙️ Registro de Moderación Configurado')
-                .setColor('#57F287')
                 .addFields({ name: 'Canal de Registros', value: `<#${canal.id}>` })
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
@@ -48,7 +47,6 @@ module.exports = {
 
             const embed = new EmbedBuilder()
                 .setTitle('⚙️ Categoría de Tickets Configurada')
-                .setColor('#57F287')
                 .addFields({ name: 'Categoría', value: `${categoria.name}` })
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
@@ -59,13 +57,12 @@ module.exports = {
         if (sub === 'apelaciones') {
             const enlace = options.getString('enlace');
             if (!/^https?:\/\/.+/.test(enlace)) {
-                return interaction.reply({ content: '⚠️ Ese no parece un enlace válido (debe empezar con http:// o https://).', ephemeral: true });
+                return interaction.reply({ content: '<:warn_icon:1552150324154998804> Ese no parece un enlace válido (debe empezar con http:// o https://).', ephemeral: true });
             }
             setGuildConfig(guild.id, { apelacionLink: enlace });
 
             const embed = new EmbedBuilder()
                 .setTitle('⚙️ Enlace de Apelaciones Configurado')
-                .setColor('#57F287')
                 .addFields({ name: 'Servidor de Apelaciones', value: enlace })
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
