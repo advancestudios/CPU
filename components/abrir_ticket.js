@@ -11,6 +11,6 @@ module.exports = {
             return interaction.editReply({ content: resultado.motivo });
         }
 
-        return interaction.editReply({ content: `✅ Tu ticket fue creado: <#${resultado.channel.id}>` });
+        return interaction.editReply({ content: `<:check_icon:1553581296398114846> Tu ticket fue creado: <#${resultado.channel.id}>` });
     }
 };
