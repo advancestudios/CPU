@@ -47,7 +47,6 @@ module.exports = {
 
         const construirEmbed = (i) => new EmbedBuilder()
             .setTitle('🖥️ Panel de Comandos')
-            .setColor('#5865F2')
             .setThumbnail(message.client.user.displayAvatarURL())
             .addFields({ name: `📂 ${categorias[i]}`, value: listaComandos[categorias[i]].join('\n') })
             .setFooter({ text: `Página ${i + 1} de ${categorias.length} • CPU v2` })
@@ -63,7 +62,7 @@ module.exports = {
 
         collector.on('collect', async i => {
             if (i.user.id !== message.author.id) {
-                return i.reply({ content: '❌ Solo quien ejecutó el comando puede navegar este menú.', ephemeral: true });
+                return i.reply({ content: '<:x_icon:1553581267600146483> Solo quien ejecutó el comando puede navegar este menú.', ephemeral: true });
             }
             if (i.customId === 'help_next') pagina++;
             if (i.customId === 'help_prev') pagina--;
