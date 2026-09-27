@@ -13,11 +13,11 @@ module.exports = {
         try {
             const borrados = await channel.bulkDelete(cantidad, true);
             return interaction.reply({
-                content: `🧹 **Mantenimiento Completado:** Se han purgado **${borrados.size} mensajes** del canal de forma segura.`,
+                content: `<:check_icon:1553581296398114846> **Mantenimiento Completado:** Se han purgado **${borrados.size} mensajes** del canal de forma segura.`,
                 ephemeral: true
             });
         } catch (error) {
-            return interaction.reply({ content: '❌ Imposible eliminar mensajes con una antigüedad mayor a 14 días.', ephemeral: true });
+            return interaction.reply({ content: '<:x_icon:1553581267600146483> Imposible eliminar mensajes con una antigüedad mayor a 14 días.', ephemeral: true });
         }
     }
 };
