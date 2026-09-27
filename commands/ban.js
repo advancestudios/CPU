@@ -15,8 +15,8 @@ module.exports = {
         const usuario = options.getMember('usuario');
         const razon = options.getString('razon') || 'Ninguna especificada.';
 
-        if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
-        if (!usuario.bannable) return interaction.reply({ content: '❌ Operación denegada: El miembro posee inmunidad o un rol superior.', ephemeral: true });
+        if (!usuario) return interaction.reply({ content: '<:x_icon:1553581267600146483> El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
+        if (!usuario.bannable) return interaction.reply({ content: '<:x_icon:1553581267600146483> Operación denegada: El miembro posee inmunidad o un rol superior.', ephemeral: true });
 
         const cfgBan = getGuildConfig(guild.id);
         const filaApelacion = cfgBan.apelacionLink ? [new ActionRowBuilder().addComponents(
@@ -42,7 +42,7 @@ module.exports = {
             return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
             console.error('Error en /ban:', error);
-            return interaction.reply({ content: '❌ Ocurrió un error al intentar banear al miembro.', ephemeral: true });
+            return interaction.reply({ content: '<:x_icon:1553581267600146483> Ocurrió un error al intentar banear al miembro.', ephemeral: true });
         }
     }
 };
