@@ -23,7 +23,7 @@ module.exports = {
         const { options, guild, user } = interaction;
         const usuario = options.getMember('usuario');
 
-        if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
+        if (!usuario) return interaction.reply({ content: '<:x_icon:1553581267600146483> El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
         const sub = options.getSubcommand();
         const idWarn = warnKey(guild.id, usuario.id);
 
@@ -38,7 +38,6 @@ module.exports = {
 
                 if (usuarioWarns.length === 0) {
                     embed.setTitle('📋 Historial de Advertencias')
-                         .setColor('#57F287')
                          .addFields(
                             { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
                             { name: 'Estado', value: 'Sin advertencias', inline: true }
@@ -47,7 +46,6 @@ module.exports = {
                 }
 
                 embed.setTitle('📋 Historial de Advertencias')
-                     .setColor('#F2A30F')
                      .addFields(
                         { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
                         { name: 'Total', value: `${usuarioWarns.length}`, inline: true }
@@ -72,7 +70,6 @@ module.exports = {
 
                 const embed = new EmbedBuilder()
                     .setTitle('🧹 Historial Limpiado')
-                    .setColor('#57F287')
                     .addFields(
                         { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
                         { name: 'Moderador', value: `${user.username}`, inline: true }
@@ -84,7 +81,7 @@ module.exports = {
             }
         } catch (error) {
             console.error('Error en /warns:', error);
-            return interaction.reply({ content: '❌ Ocurrió un error al procesar la solicitud con MongoDB.', ephemeral: true });
+            return interaction.reply({ content: '<:x_icon:1553581267600146483> Ocurrió un error al procesar la solicitud con MongoDB.', ephemeral: true });
         }
     }
 };
