@@ -15,7 +15,7 @@ module.exports = {
             await guild.members.unban(userId);
 
             const embed = new EmbedBuilder()
-                .setTitle('✅ Baneo Revocado')
+                .setTitle('<:check_icon:1553581296398114846> Baneo Revocado')
                 .addFields(
                     { name: 'ID Revocado', value: `${userId}`, inline: true },
                     { name: 'Moderador', value: `${user.username}`, inline: true }
@@ -26,7 +26,7 @@ module.exports = {
             await logModeracion(guild, embed);
             return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
-            return interaction.reply({ content: '❌ Error: La ID provista no coincide con ningún baneo activo.', ephemeral: true });
+            return interaction.reply({ content: '<:x_icon:1553581267600146483> Error: La ID provista no coincide con ningún baneo activo.', ephemeral: true });
         }
     }
 };
