@@ -18,7 +18,6 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle(`👤 ${miembro.user.username}`)
-            .setColor('#5865F2')
             .setThumbnail(miembro.user.displayAvatarURL({ dynamic: true }))
             .addFields(
                 { name: 'ID', value: `${miembro.id}`, inline: false },
