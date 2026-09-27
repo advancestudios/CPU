@@ -23,14 +23,13 @@ module.exports = {
         const usuario = options.getMember('usuario');
         const razon = options.getString('razon') || 'Ninguna especificada.';
 
-        if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
-        if (!usuario.bannable) return interaction.reply({ content: '❌ Operación denegada: El miembro posee inmunidad o un rol superior.', ephemeral: true });
+        if (!usuario) return interaction.reply({ content: '<:x_icon:1553581267600146483> El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
+        if (!usuario.bannable) return interaction.reply({ content: '<:x_icon:1553581267600146483> Operación denegada: El miembro posee inmunidad o un rol superior.', ephemeral: true });
 
         const segundosBorrar = parseInt(options.getString('borrar-mensajes') || '0', 10);
 
         const embed = new EmbedBuilder()
             .setTitle('🧹 Miembro Expulsado (Softban)')
-            .setColor('#ED4245')
             .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
             .addFields(
                 { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
@@ -47,7 +46,7 @@ module.exports = {
             return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
             console.error('Error en /softban:', error);
-            return interaction.reply({ content: '❌ Ocurrió un error al intentar aplicar el softban.', ephemeral: true });
+            return interaction.reply({ content: '<:x_icon:1553581267600146483> Ocurrió un error al intentar aplicar el softban.', ephemeral: true });
         }
     }
 };
