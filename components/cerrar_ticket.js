@@ -10,7 +10,7 @@ module.exports = {
         const esStaff = esMiembroStaff(member, guild.id);
 
         if (!esDueño && !esStaff) {
-            return interaction.reply({ content: '❌ No tienes permiso para cerrar este ticket.', ephemeral: true });
+            return interaction.reply({ content: '<:x_icon:1553581267600146483> No tienes permiso para cerrar este ticket.', ephemeral: true });
         }
 
         await interaction.reply({ content: `🔒 Ticket cerrado por **${member.user.username}**. Este canal se eliminará en 5 segundos.` });
