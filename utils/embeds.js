@@ -52,7 +52,6 @@ function embedToContainer(embed) {
 function construirEmbedTicket(nombreUsuario, atendidoPor) {
     return new EmbedBuilder()
         .setTitle('🎫 Ticket de Soporte')
-        .setColor('#5865F2')
         .addFields(
             { name: 'Usuario', value: `${nombreUsuario}`, inline: true },
             { name: 'Atendido por', value: atendidoPor || 'Nadie aún', inline: true },
