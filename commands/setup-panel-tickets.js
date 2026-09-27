@@ -5,7 +5,7 @@ const { embedToContainer } = require('../utils/embeds');
 module.exports = {
     requiereStaff: false,
     data: new SlashCommandBuilder()
-        .setName('setup-panel-tickets')
+        .setName('setup panel-tickets')
         .setDescription('Envía el panel de soporte con el botón para abrir tickets en este canal')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
@@ -13,12 +13,11 @@ module.exports = {
         const { guild, channel } = interaction;
         const cfg = getGuildConfig(guild.id);
         if (!cfg.ticketsCategory) {
-            return interaction.reply({ content: '⚠️ Primero configura la categoría con `/setup tickets`.', ephemeral: true });
+            return interaction.reply({ content: '<:warn_icon:1552150324154998804> Primero configura la categoría con `/setup tickets`.', ephemeral: true });
         }
 
         const embedPanel = new EmbedBuilder()
             .setTitle('🎫 Soporte al Miembro')
-            .setColor('#5865F2')
             .setDescription('¿Necesitas ayuda o tienes una duda? Presiona el botón para abrir un ticket privado con el Staff.')
             .setFooter({ text: 'CPU v2' })
             .setTimestamp();
@@ -28,6 +27,6 @@ module.exports = {
         );
 
         await channel.send({ components: [embedToContainer(embedPanel), row], flags: MessageFlags.IsComponentsV2 });
-        return interaction.reply({ content: '✅ Panel de tickets enviado.', ephemeral: true });
+        return interaction.reply({ content: '<:check_icon:1553581296398114846> Panel de tickets enviado.', ephemeral: true });
     }
 };
