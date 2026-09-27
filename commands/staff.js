@@ -23,7 +23,6 @@ module.exports = {
 
             const embed = new EmbedBuilder()
                 .setTitle('⚙️ Permisos de Staff Configurados')
-                .setColor('#57F287')
                 .addFields({ name: 'Rol Autorizado para Staff', value: `<@&${rolStaff.id}>` })
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
