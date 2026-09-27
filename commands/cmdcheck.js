@@ -38,7 +38,6 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle(`🔍 Permisos — ${miembro.user.username}`)
-            .setColor('#5865F2')
             .setThumbnail(miembro.user.displayAvatarURL({ dynamic: true }))
             .setDescription(permisosActivos.length ? permisosActivos.join('\n') : 'Sin permisos administrativos relevantes.')
             .setFooter({ text: 'CPU v2' })
