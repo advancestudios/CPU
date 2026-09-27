@@ -22,7 +22,7 @@ module.exports = {
 
         if (!canalId) {
             return interaction.reply({
-                content: '⚠️ El sistema de postulaciones no ha sido configurado. Pide a un administrador usar `/set-canal-postulaciones`.',
+                content: '<:warn_icon:1552150324154998804> El sistema de postulaciones no ha sido configurado. Pide a un administrador usar `/set-canal-postulaciones`.',
                 ephemeral: true
             });
         }
@@ -50,7 +50,7 @@ module.exports = {
             collector.on('collect', async i => {
                 respondido = true;
                 if (i.customId === 'cancelar_postulacion') {
-                    await i.update({ components: [new TextDisplayBuilder().setContent('❌ Has cancelado la postulación.')], flags: MessageFlags.IsComponentsV2 });
+                    await i.update({ components: [new TextDisplayBuilder().setContent('<:x_icon:1553581267600146483> Has cancelado la postulación.')], flags: MessageFlags.IsComponentsV2 });
                     return;
                 }
 
@@ -103,9 +103,9 @@ module.exports = {
                             .setTimestamp();
 
                         await canalDestino.send({ components: [embedToContainer(embedExpediente)], flags: MessageFlags.IsComponentsV2 });
-                        await dmChannel.send('✅ **¡Postulación enviada con éxito!** Tus respuestas han sido entregadas.');
+                        await dmChannel.send('<:check_icon:1553581296398114846> **¡Postulación enviada con éxito!** Tus respuestas han sido entregadas.');
                     } else {
-                        await dmChannel.send('⚠️ Hubo un error al entregar el expediente. Contacta a un administrador.');
+                        await dmChannel.send('<:warn_icon:1552150324154998804> Hubo un error al entregar el expediente. Contacta a un administrador.');
                     }
                 }
             });
@@ -119,7 +119,7 @@ module.exports = {
             });
 
         } catch (error) {
-            return interaction.reply({ content: '❌ No pude enviarte un mensaje privado. Revisa tus ajustes de privacidad.', ephemeral: true });
+            return interaction.reply({ content: '<:x_icon:1553581267600146483> No pude enviarte un mensaje privado. Revisa tus ajustes de privacidad.', ephemeral: true });
         }
     }
 };
