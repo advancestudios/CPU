@@ -23,12 +23,12 @@ module.exports = {
         const { options, guild, user } = interaction;
         const usuario = options.getMember('usuario');
 
-        if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
+        if (!usuario) return interaction.reply({ content: '<:x_icon:1553581267600146483> El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
         const sub = options.getSubcommand();
         const rol = options.getRole('rol');
 
         if (rol.position >= guild.members.me.roles.highest.position) {
-            return interaction.reply({ content: '❌ Conflicto de Jerarquía: El rol solicitado se encuentra en un nivel superior al de este bot.', ephemeral: true });
+            return interaction.reply({ content: '<:x_icon:1553581267600146483> Conflicto de Jerarquía: El rol solicitado se encuentra en un nivel superior al de este bot.', ephemeral: true });
         }
 
         if (sub === 'add') {
