@@ -12,8 +12,8 @@ module.exports = {
         const { options, guild, user } = interaction;
         const usuario = options.getMember('usuario');
 
-        if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
-        if (!usuario.moderatable) return interaction.reply({ content: '❌ No poseo la autoridad para modificar el estado de este miembro.', ephemeral: true });
+        if (!usuario) return interaction.reply({ content: '<:x_icon:1553581267600146483> El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
+        if (!usuario.moderatable) return interaction.reply({ content: '<:x_icon:1553581267600146483> No poseo la autoridad para modificar el estado de este miembro.', ephemeral: true });
         if (!usuario.communicationDisabledUntilTimestamp) return interaction.reply({ content: 'ℹ️ El miembro seleccionado no se encuentra bajo régimen de aislamiento.', ephemeral: true });
 
         await usuario.timeout(null);
