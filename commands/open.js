@@ -12,7 +12,7 @@ module.exports = {
         const { options, guild, user } = interaction;
         const miembroObjetivo = options.getMember('usuario');
         if (!miembroObjetivo) {
-            return interaction.reply({ content: '❌ Ese usuario no se encuentra en el servidor.', ephemeral: true });
+            return interaction.reply({ content: '<:x_icon:1553581267600146483> Ese usuario no se encuentra en el servidor.', ephemeral: true });
         }
 
         await interaction.deferReply({ ephemeral: true });
@@ -22,6 +22,6 @@ module.exports = {
             return interaction.editReply({ content: resultado.motivo });
         }
 
-        return interaction.editReply({ content: `✅ Ticket abierto para **${miembroObjetivo.user.username}**: <#${resultado.channel.id}>` });
+        return interaction.editReply({ content: `<:check_icon:1553581296398114846> Ticket abierto para **${miembroObjetivo.user.username}**: <#${resultado.channel.id}>` });
     }
 };
