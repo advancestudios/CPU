@@ -14,8 +14,8 @@ module.exports = {
         const usuario = options.getMember('usuario');
         const razon = options.getString('razon') || 'Ninguna especificada.';
 
-        if (!usuario) return interaction.reply({ content: '❌ El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
-        if (!usuario.kickable) return interaction.reply({ content: '❌ Operación denegada: Privilegios insuficientes o jerarquía superior.', ephemeral: true });
+        if (!usuario) return interaction.reply({ content: '<:x_icon:1553581267600146483> El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
+        if (!usuario.kickable) return interaction.reply({ content: '<:x_icon:1553581267600146483> Operación denegada: Privilegios insuficientes o jerarquía superior.', ephemeral: true });
 
         try {
             await usuario.kick(razon);
@@ -35,7 +35,7 @@ module.exports = {
             return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
             console.error('Error en /kick:', error);
-            return interaction.reply({ content: '❌ Ocurrió un error al intentar expulsar al miembro.', ephemeral: true });
+            return interaction.reply({ content: '<:x_icon:1553581267600146483> Ocurrió un error al intentar expulsar al miembro.', ephemeral: true });
         }
     }
 };
