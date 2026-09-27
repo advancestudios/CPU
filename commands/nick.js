@@ -17,17 +17,17 @@ module.exports = {
 
         if (miembroObjetivo.id !== user.id) {
             if (!esMiembroStaff(interaction.member, guild.id)) {
-                return interaction.reply({ content: '❌ Requieres ser Staff o tener permisos para modificar el alias de otro usuario.', ephemeral: true });
+                return interaction.reply({ content: '<:x_icon:1553581267600146483> Requieres ser Staff o tener permisos para modificar el alias de otro usuario.', ephemeral: true });
             }
             if (guild.ownerId === miembroObjetivo.id) {
-                return interaction.reply({ content: '❌ Prohibido modificar credenciales del propietario del servidor.', ephemeral: true });
+                return interaction.reply({ content: '<:x_icon:1553581267600146483> Prohibido modificar credenciales del propietario del servidor.', ephemeral: true });
             }
             if (miembroObjetivo.roles.highest.position >= guild.members.me.roles.highest.position) {
-                return interaction.reply({ content: '❌ Jerarquía insuficiente para alterar a este miembro.', ephemeral: true });
+                return interaction.reply({ content: '<:x_icon:1553581267600146483> Jerarquía insuficiente para alterar a este miembro.', ephemeral: true });
             }
         } else {
             if (guild.ownerId === user.id) {
-                return interaction.reply({ content: '❌ Discord no permite alterar el apodo del dueño del servidor vía bot.', ephemeral: true });
+                return interaction.reply({ content: '<:x_icon:1553581267600146483> Discord no permite alterar el apodo del dueño del servidor vía bot.', ephemeral: true });
             }
         }
 
@@ -47,7 +47,7 @@ module.exports = {
 
             return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
-            return interaction.reply({ content: '❌ Error al modificar el apodo.', ephemeral: true });
+            return interaction.reply({ content: '<:x_icon:1553581267600146483> Error al modificar el apodo.', ephemeral: true });
         }
     }
 };
