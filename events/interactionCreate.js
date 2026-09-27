@@ -38,7 +38,7 @@ module.exports = {
 
         if (comando.requiereStaff) {
             if (!esMiembroStaff(interaction.member, interaction.guild.id)) {
-                return interaction.reply({ content: '❌ Acceso denegado: Necesitas permisos de Administrador para usar este comando.', ephemeral: true });
+                return interaction.reply({ content: '<:x_icon:1553581267600146483> Acceso denegado: Necesitas permisos de Administrador para usar este comando.', ephemeral: true });
             }
         }
 
@@ -46,7 +46,7 @@ module.exports = {
             await comando.execute(interaction);
         } catch (error) {
             console.error(`Error al ejecutar /${interaction.commandName}:`, error);
-            const payload = { content: '❌ Ocurrió un error inesperado al ejecutar este comando.', ephemeral: true };
+            const payload = { content: '<:x_icon:1553581267600146483> Ocurrió un error inesperado al ejecutar este comando.', ephemeral: true };
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp(payload).catch(() => {});
             } else {
