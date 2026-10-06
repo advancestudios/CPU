@@ -40,7 +40,6 @@ module.exports = {
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .addFields(
                     { name: 'Miembro Advertido', value: `${miembroObjetivo.user}`, inline: true },
-                    { name: 'Moderador', value: `${miembroObtetivo.user}`, inline: true },
                     { name: 'Historial de Warns', value: `${totalWarns}`, inline: true },
                     { name: 'Razón', value: razon, inline: false }
                 )
