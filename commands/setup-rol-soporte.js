@@ -5,7 +5,7 @@ const { embedToContainer } = require('../utils/embeds');
 module.exports = {
     requiereStaff: false,
     data: new SlashCommandBuilder()
-        .setName('setup rol-soporte')
+        .setName('setup-rol-soporte')
         .setDescription('Establece el rol de Staff que se mencionará al abrirse un ticket')
         .addRoleOption(opt => opt.setName('rol').setDescription('Rol de soporte').setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
