@@ -18,7 +18,7 @@ module.exports = {
                 .setTitle('<:check_icon:1553581296398114846> Baneo Revocado')
                 .addFields(
                     { name: 'ID Revocado', value: `${userId}`, inline: true },
-                    { name: 'Moderador', value: `${user.username}`, inline: true }
+                    { name: 'Moderador', value: `${miembroObjetivo.user}`, inline: true }
                 )
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
