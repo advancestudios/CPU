@@ -50,7 +50,7 @@ module.exports = {
             return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
         } catch (error) {
             console.error('Error en /warn:', error);
-            return interaction.reply({ content: '<:x_icon:1553581267600146483> Ocurrió un error al registrar la advertencia en MongoDB.', ephemeral: true });
+            return interaction.reply({ content: '<:x_icon:1553581267600146483> Ocurrió un error al registrar la advertencia.', ephemeral: true });
         }
     }
 };
