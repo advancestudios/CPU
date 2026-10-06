@@ -39,7 +39,8 @@ module.exports = {
                 .setTitle('<:warn_icon:1552150324154998804> Miembro Advertido')
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .addFields(
-                    { name: 'Miembro Advertido', value: `${usuario.user.username}`, inline: true },
+                    { name: 'Miembro Advertido', value: `${miembroObjetivo.user}`, inline: true },
+                    { name: 'Moderador', value: `${miembroObtetivo.user}`, inline: true },
                     { name: 'Historial de Warns', value: `${totalWarns}`, inline: true },
                     { name: 'Razón', value: razon, inline: false }
                 )
