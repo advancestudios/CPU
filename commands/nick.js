@@ -36,9 +36,8 @@ module.exports = {
 
             const embed = new EmbedBuilder()
                 .setTitle('✏️ Apodo Actualizado')
-                .setColor('#57F287')
                 .addFields(
-                    { name: 'Miembro', value: `${miembroObjetivo.user.username}`, inline: true },
+                    { name: 'Miembro', value: `${miembroObjetivo.user}`, inline: true },
                     { name: 'Nuevo Apodo', value: nuevoApodo || 'Restablecido', inline: true },
                     { name: 'Moderador', value: `${user.username}`, inline: true }
                 )
