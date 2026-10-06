@@ -5,7 +5,7 @@ const { embedToContainer } = require('../utils/embeds');
 module.exports = {
     requiereStaff: false,
     data: new SlashCommandBuilder()
-        .setName('setup panel-tickets')
+        .setName('setup-panel-tickets')
         .setDescription('Envía el panel de soporte con el botón para abrir tickets en este canal')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
