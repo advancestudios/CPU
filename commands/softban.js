@@ -32,8 +32,8 @@ module.exports = {
             .setTitle('🧹 Miembro Expulsado (Softban)')
             .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
             .addFields(
-                { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
-                { name: 'Moderador', value: `${user.username}`, inline: true },
+                { name: 'Miembro', value: `${miembroObjetivo.user}`, inline: true },
+                { name: 'Moderador', value: `${miembroObjetivo.user}`, inline: true },
                 { name: 'Razón', value: razon, inline: false }
             )
             .setFooter({ text: 'CPU v2' })
