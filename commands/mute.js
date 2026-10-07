@@ -38,9 +38,9 @@ module.exports = {
                 .setTitle('<:mute_icon:1553578587876102254> Miembro Silenciado')
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .addFields(
-                    { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
+                    { name: 'Miembro', value: `${miembroObjetivo.user}`, inline: true },
                     { name: 'Duración', value: `${minutes} min`, inline: true },
-                    { name: 'Moderador', value: `${user.username}`, inline: true },
+                    { name: 'Moderador', value: `${miembroObjetvo.user}`, inline: true },
                     { name: 'Razón', value: razon, inline: false }
                 )
                 .setFooter({ text: 'CPU v2' })
