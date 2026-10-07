@@ -34,7 +34,7 @@ module.exports = {
 
         const permisosActivos = Object.entries(mapaPermisos)
             .filter(([flag]) => miembro.permissions.has(PermissionFlagsBits[flag]))
-            .map(([, nombre]) => `<:check_icon:1553581296398114846> ${miembroObjetivo.user}`);
+            .map(([, nombre]) => `<:check_icon:1553581296398114846>`);
 
         const embed = new EmbedBuilder()
             .setTitle(`🔍 Permisos — ${miembro.user.username}`)
