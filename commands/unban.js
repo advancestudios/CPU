@@ -16,15 +16,16 @@ module.exports = {
 
             const embed = new EmbedBuilder()
                 .setTitle('<:check_icon:1553581296398114846> Baneo Revocado')
+                .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .addFields(
                     { name: 'ID Revocado', value: `${userId}`, inline: true },
-                    { name: 'Moderador', value: `${miembroObjetivo.user}`, inline: true }
+                    { name: 'Moderador', value: `${user}`, inline: true }
                 )
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
             await logModeracion(guild, embed);
-            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
         } catch (error) {
             return interaction.reply({ content: '<:x_icon:1553581267600146483> Error: La ID provista no coincide con ningún baneo activo.', ephemeral: true });
         }
