@@ -43,6 +43,6 @@ module.exports = {
             .setFooter({ text: 'CPU v2' })
             .setTimestamp();
 
-        return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+        return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2});
     }
 };
