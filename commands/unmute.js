@@ -20,6 +20,7 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle('🔊 Silencio Removido')
+            .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
             .addFields(
                 { name: 'Miembro', value: `${usuario}`, inline: true },
                 { name: 'Moderador', value: `${user}`, inline: true }
