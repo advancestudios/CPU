@@ -38,16 +38,16 @@ module.exports = {
                 .setTitle('<:mute_icon:1553578587876102254> Miembro Silenciado')
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .addFields(
-                    { name: 'Miembro', value: `${miembroObjetivo.user}`, inline: true },
+                    { name: 'Miembro', value: `${usuario}`, inline: true },
                     { name: 'Duración', value: `${minutes} min`, inline: true },
-                    { name: 'Moderador', value: `${miembroObjetvo.user}`, inline: true },
+                    { name: 'Moderador', value: `${user}`, inline: true },
                     { name: 'Razón', value: razon, inline: false }
                 )
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
             await logModeracion(guild, embed);
-            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
         } catch (error) {
             console.error('Error en /mute:', error);
             return interaction.reply({ content: '<:x_icon:1553581267600146483> Ocurrió un error al intentar silenciar al miembro.', ephemeral: true });
