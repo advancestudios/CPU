@@ -24,15 +24,15 @@ module.exports = {
                 .setTitle('<:kick_icon:1552295636144103506> Miembro Expulsado')
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .addFields(
-                    { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
-                    { name: 'Moderador', value: `${user.username}`, inline: true },
+                    { name: 'Miembro', value: `${usuario}`, inline: true },
+                    { name: 'Moderador', value: `${user}`, inline: true },
                     { name: 'Razón', value: razon, inline: false }
                 )
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
             await logModeracion(guild, embed);
-            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
         } catch (error) {
             console.error('Error en /kick:', error);
             return interaction.reply({ content: '<:x_icon:1553581267600146483> Ocurrió un error al intentar expulsar al miembro.', ephemeral: true });
