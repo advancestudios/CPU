@@ -21,13 +21,13 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setTitle('🔊 Silencio Removido')
             .addFields(
-                { name: 'Miembro', value: `${miembroObjetivo.user}`, inline: true },
-                { name: 'Moderador', value: `${miembroObjetivo.user}`, inline: true }
+                { name: 'Miembro', value: `${usuario}`, inline: true },
+                { name: 'Moderador', value: `${user}`, inline: true }
             )
             .setFooter({ text: 'CPU v2' })
             .setTimestamp();
 
         await logModeracion(guild, embed);
-        return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
+        return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
     }
 };
