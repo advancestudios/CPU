@@ -27,8 +27,8 @@ module.exports = {
             .setTitle('<:ban_icon:1552047267920478278> Miembro Baneado')
             .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
             .addFields(
-                { name: 'Miembro', value: `${miembroObjetivo.user}`, inline: true },
-                { name: 'Moderador', value: `${miembroObtetivo.user}`, inline: true },
+                { name: 'Miembro', value: `${miembroObjetivo}`, inline: true },
+                { name: 'Moderador', value: `${miembroObtetivo}`, inline: true },
                 { name: 'Razón', value: razon, inline: false }
             )
             .setFooter({ text: 'CPU v2' })
