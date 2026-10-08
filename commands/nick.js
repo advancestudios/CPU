@@ -37,14 +37,14 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setTitle('✏️ Apodo Actualizado')
                 .addFields(
-                    { name: 'Miembro', value: `${miembroObjetivo.user}`, inline: true },
+                    { name: 'Miembro', value: `${usuario}`, inline: true },
                     { name: 'Nuevo Apodo', value: nuevoApodo || 'Restablecido', inline: true },
-                    { name: 'Moderador', value: `${user.username}`, inline: true }
+                    { name: 'Moderador', value: `${user}`, inline: true }
                 )
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
-            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
         } catch (error) {
             return interaction.reply({ content: '<:x_icon:1553581267600146483> Error al modificar el apodo.', ephemeral: true });
         }
