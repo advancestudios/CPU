@@ -39,7 +39,7 @@ module.exports = {
         try {
             await guild.members.ban(usuario.id, { reason: razon });
             await logModeracion(guild, embed, filaApelacion);
-            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
         } catch (error) {
             console.error('Error en /ban:', error);
             return interaction.reply({ content: '<:x_icon:1553581267600146483> Ocurrió un error al intentar banear al miembro.', ephemeral: true });
