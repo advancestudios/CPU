@@ -39,15 +39,15 @@ module.exports = {
                 if (usuarioWarns.length === 0) {
                     embed.setTitle('📋 Historial de Advertencias')
                          .addFields(
-                            { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
+                            { name: 'Miembro', value: `${usuario}`, inline: true },
                             { name: 'Estado', value: 'Sin advertencias', inline: true }
                          );
-                    return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
+                    return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
                 }
 
                 embed.setTitle('📋 Historial de Advertencias')
                      .addFields(
-                        { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
+                        { name: 'Miembro', value: `${usuario}`, inline: true },
                         { name: 'Total', value: `${usuarioWarns.length}`, inline: true }
                      );
 
@@ -58,12 +58,12 @@ module.exports = {
                     });
                 });
 
-                return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
+                return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
             }
 
             if (sub === 'clear') {
                 if (usuarioWarns.length === 0) {
-                    return interaction.reply({ content: `ℹ️ **${usuario.user.username}** ya no tiene advertencias registradas.`, ephemeral: true });
+                    return interaction.reply({ content: `ℹ️ **${usuario}** ya no tiene advertencias registradas.`, ephemeral: true });
                 }
 
                 await WarnModel.deleteOne({ key: idWarn });
@@ -71,13 +71,13 @@ module.exports = {
                 const embed = new EmbedBuilder()
                     .setTitle('🧹 Historial Limpiado')
                     .addFields(
-                        { name: 'Miembro', value: `${usuario.user.username}`, inline: true },
-                        { name: 'Moderador', value: `${user.username}`, inline: true }
+                        { name: 'Miembro', value: `${usuario}`, inline: true },
+                        { name: 'Moderador', value: `${user}`, inline: true }
                     )
                     .setFooter({ text: 'CPU v2' })
                     .setTimestamp();
 
-                return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
+                return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
             }
         } catch (error) {
             console.error('Error en /warns:', error);
