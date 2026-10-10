@@ -39,7 +39,8 @@ module.exports = {
                 .setTitle('<:warn_icon:1552150324154998804> Miembro Advertido')
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .addFields(
-                    { name: 'Miembro Advertido', value: `${miembroObjetivo.user}`, inline: true },
+                    { name: 'Miembro Advertido', value: `${usuario}`, inline: true },
+                    { name: 'Moderador', value: `${user}`, inline: true },
                     { name: 'Historial de Warns', value: `${totalWarns}`, inline: true },
                     { name: 'Razón', value: razon, inline: false }
                 )
@@ -47,7 +48,7 @@ module.exports = {
                 .setTimestamp();
 
             await logModeracion(guild, embed);
-            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
         } catch (error) {
             console.error('Error en /warn:', error);
             return interaction.reply({ content: '<:x_icon:1553581267600146483> Ocurrió un error al registrar la advertencia.', ephemeral: true });
