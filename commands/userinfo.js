@@ -28,6 +28,6 @@ module.exports = {
             .setFooter({ text: 'CPU v2' })
             .setTimestamp();
 
-        return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
+        return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
     }
 };
