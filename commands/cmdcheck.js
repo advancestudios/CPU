@@ -37,12 +37,12 @@ module.exports = {
             .map(([, nombre]) => `<:check_icon:1553581296398114846> ${nombre}`);
 
         const embed = new EmbedBuilder()
-            .setTitle(`🔍 Permisos — ${miembro.user.username}`)
+            .setTitle(`🔍 Permisos — ${usuario}`)
             .setThumbnail(miembro.user.displayAvatarURL({ dynamic: true }))
             .setDescription(permisosActivos.length ? permisosActivos.join('\n') : 'Sin permisos administrativos relevantes.')
             .setFooter({ text: 'CPU v2' })
             .setTimestamp();
 
-        return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2});
+        return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
     }
 };
