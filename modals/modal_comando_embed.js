@@ -56,7 +56,7 @@ module.exports = {
 
             await interaction.channel.send({
                 components: [container],
-                flags: MessageFlags.IsComponentsV2
+                flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] }
             });
 
             return await interaction.reply({ content: '✅ Embed enviado con éxito.', ephemeral: true });
