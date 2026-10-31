@@ -19,7 +19,15 @@ conectarMongo();
 
 // Servidor web y API para el Dashboard
 const app = express();
-app.use(express.json()); // 👈 MUY IMPORTANTE: Para leer los datos JSON que envía el dashboard
+app.use(express.json());
+
+// 🟢 Cabeceras para permitir que Netlify lea los datos de tu API sin bloqueos del navegador
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    next();
+});
 
 const PORT = process.env.PORT || 3000;
 
@@ -92,7 +100,6 @@ for (const archivo of fs.readdirSync(path.join(__dirname, 'events')).filter(f =>
 // 🌐 ENDPOINTS DE LA API PARA EL DASHBOARD
 // ==========================================
 
-// 1. Obtener canales, categorías y roles del servidor seleccionado
 app.get('/guild', async (req, res) => {
     try {
         const guildId = req.query.guild_id;
@@ -101,19 +108,16 @@ app.get('/guild', async (req, res) => {
         const guild = client.guilds.cache.get(guildId);
         if (!guild) return res.status(404).json({ error: "El bot no está en este servidor o no está disponible" });
 
-        // Canales de texto (tipo 0)
         const channels = guild.channels.cache
             .filter(c => c.type === 0)
             .map(c => ({ id: c.id, name: c.name }));
 
-        // Categorías (tipo 4)
         const categories = guild.channels.cache
             .filter(c => c.type === 4)
             .map(c => ({ id: c.id, name: c.name }));
 
-        // Roles del servidor
         const roles = guild.roles.cache
-            .filter(r => r.id !== guild.id) // Excluir @everyone si se desea
+            .filter(r => r.id !== guild.id)
             .map(r => ({ id: r.id, name: r.name }));
 
         res.json({ channels, categories, roles });
@@ -123,7 +127,6 @@ app.get('/guild', async (req, res) => {
     }
 });
 
-// 2. Endpoint para enviar mensajes normales (/send)
 app.post('/send', async (req, res) => {
     try {
         const { guildId, channelId, content } = req.body;
@@ -141,7 +144,6 @@ app.post('/send', async (req, res) => {
     }
 });
 
-// 3. Endpoint para enviar mensajes tipo Embed (/embed)
 app.post('/embed', async (req, res) => {
     try {
         const { guildId, channelId, embed } = req.body;
@@ -151,7 +153,6 @@ app.post('/embed', async (req, res) => {
         const channel = guild.channels.cache.get(channelId);
         if (!channel) return res.status(404).json({ error: "Canal no encontrado" });
 
-        // Procesar variables simples como {sp} (saltos de línea) si vienen en el texto
         const processText = (text) => text ? text.replace(/\{sp\}/g, '\n') : text;
 
         const formattedEmbed = {
@@ -168,7 +169,6 @@ app.post('/embed', async (req, res) => {
             formattedEmbed.author = { name: processText(embed.author) };
         }
 
-        // Limpiar propiedades vacías/nulas
         Object.keys(formattedEmbed).forEach(key => formattedEmbed[key] === null && delete formattedEmbed[key]);
 
         await channel.send({ embeds: [formattedEmbed] });
@@ -179,12 +179,9 @@ app.post('/embed', async (req, res) => {
     }
 });
 
-// 4. Endpoints de Tickets
 app.post('/tickets/setup', async (req, res) => {
     try {
         const { guildId, categoryId } = req.body;
-        // Aquí puedes guardar la categoría en tu base de datos de MongoDB
-        // Ejemplo: await Database.set(`tickets_category_${guildId}`, categoryId);
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -197,7 +194,6 @@ app.post('/tickets/panel', async (req, res) => {
         const guild = client.guilds.cache.get(guildId);
         const channel = guild.channels.cache.get(channelId);
         
-        // Lógica para enviar el panel de tickets al canal seleccionado
         await channel.send({ content: "🎟️ **Panel de Tickets** (Configurado desde el Dashboard)" });
         res.json({ success: true });
     } catch (error) {
@@ -208,14 +204,12 @@ app.post('/tickets/panel', async (req, res) => {
 app.post('/tickets/support-role', async (req, res) => {
     try {
         const { guildId, roleId } = req.body;
-        // Guardar rol de soporte en base de datos
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// Iniciar el servidor web y el bot
 app.listen(PORT, () => console.log(`🌐 [CPU v2] Servidor web y API activos en el puerto ${PORT}`));
 
 client.login(TOKEN);
