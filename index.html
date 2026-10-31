@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- ✏️ EDITAR: título que aparece en la pestaña del navegador -->
+  <title>CPU — Bot de Discord</title>
+
+  <!-- ✏️ EDITAR: descripción para Google / vista previa de enlaces -->
+  <meta name="description" content="CPU, un bot de Discord para moderación, postulaciones y utilidad." />
+  <meta name="theme-color" content="#1a1a1e" />
+
+  <!-- Aplica el tema guardado en el dashboard (claro / oscuro / sistema) antes de pintar la página -->
+  <script>
+    (function () {
+      try {
+        var pref = localStorage.getItem("cpu_theme") || "dark";
+        var t = pref === "system"
+          ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")
+          : pref;
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ==========================================================
+       🎨 COLORES — cambia todo el sitio desde aquí
+       ========================================================== */
+    :root {
+      --bg:        #1a1a1e;   /* fondo principal (el oscuro actual de Discord) */
+      --bg-soft:   #222226;   /* tarjetas / secciones */
+      --bg-deep:   #121214;   /* barra superior / pie */
+      --border:    #2e2f34;   /* bordes sutiles */
+      --text:      #f2f3f5;   /* texto principal */
+      --text-dim:  #b5bac1;   /* texto secundario */
+      --accent:    #2dd4bf;   /* turquesa (acento principal) */
+      --accent-2:  #22d3ee;   /* cian (acento secundario) */
+      --on-accent: #0b1f1c;   /* texto sobre botones de color */
+      --nav-bg:    rgba(18, 18, 20, 0.8);
+      --radius:    14px;
+    }
+
+    /* ☀️ Tema claro (se activa desde Configuración en el dashboard) */
+    :root[data-theme="light"] {
+      --bg:        #f2f3f5;
+      --bg-soft:   #ffffff;
+      --bg-deep:   #e3e5e8;
+      --border:    #d4d7dc;
+      --text:      #1e1f22;
+      --text-dim:  #4e5058;
+      --accent:    #0d9488;
+      --accent-2:  #0891b2;
+      --on-accent: #ffffff;
+      --nav-bg:    rgba(242, 243, 245, 0.85);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Inter", system-ui, sans-serif;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      /* Crossfade de entrada de toda la página */
+      animation: pageIn 0.9s ease both;
+    }
+
+    @keyframes pageIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* Elementos que aparecen suavemente uno tras otro */
+    .fade {
+      opacity: 0;
+      transform: translateY(12px);
+      animation: fadeUp 0.8s ease forwards;
+    }
+    .d1 { animation-delay: 0.15s; }
+    .d2 { animation-delay: 0.35s; }
+    .d3 { animation-delay: 0.55s; }
+    .d4 { animation-delay: 0.75s; }
+
+    @keyframes fadeUp { to { opacity: 1; transform: none; } }
+
+    /* Aparición al hacer scroll (la activa el script de abajo) */
+    .reveal {
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+    .reveal.visible { opacity: 1; transform: none; }
+
+    a { color: inherit; text-decoration: none; }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+    /* ---------- NAVEGACIÓN ---------- */
+    nav {
+      position: sticky; top: 0; z-index: 10;
+      background: var(--nav-bg);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+    }
+    nav .wrap {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px;
+    }
+    .logo { font-weight: 600; letter-spacing: 0.04em; }
+    .logo span { color: var(--accent); }
+    .links { display: flex; gap: 24px; font-size: 0.92rem; color: var(--text-dim); }
+    .links a { transition: color 0.2s; }
+    .links a:hover { color: var(--accent); }
+
+    /* ---------- HERO ---------- */
+    .hero {
+      min-height: 82vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 80px 0;
+    }
+    .badge {
+      font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--accent);
+      border: 1px solid var(--border); background: var(--bg-soft);
+      padding: 6px 14px; border-radius: 999px; margin-bottom: 28px;
+    }
+    h1 {
+      font-size: clamp(2.6rem, 8vw, 4.8rem);
+      font-weight: 600; letter-spacing: -0.03em; line-height: 1.05;
+    }
+    h1 em {
+      font-style: normal;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .hero p {
+      max-width: 520px; margin: 22px auto 36px;
+      color: var(--text-dim); font-weight: 300; font-size: 1.1rem;
+    }
+    .buttons { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+    .btn {
+      padding: 12px 26px; border-radius: 10px; font-weight: 500; font-size: 0.95rem;
+      transition: transform 0.2s, background 0.2s, border-color 0.2s;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn-primary { background: var(--accent); color: var(--on-accent); }
+    .btn-primary:hover { background: var(--accent-2); }
+    .btn-ghost { border: 1px solid var(--border); color: var(--text); }
+    .btn-ghost:hover { border-color: var(--accent); }
+
+    /* ---------- SECCIONES ---------- */
+    section { padding: 80px 0; }
+    .section-title { font-size: 1.7rem; font-weight: 600; letter-spacing: -0.02em; }
+    .section-sub { color: var(--text-dim); margin: 8px 0 40px; font-weight: 300; }
+
+    .grid {
+      display: grid; gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    }
+    .card {
+      background: var(--bg-soft); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 28px;
+      transition: border-color 0.25s, transform 0.25s;
+    }
+    .card:hover { border-color: var(--accent); transform: translateY(-3px); }
+    .card .icon { font-size: 1.5rem; margin-bottom: 14px; }
+    .card h3 { font-size: 1.05rem; font-weight: 600; margin-bottom: 6px; }
+    .card p { color: var(--text-dim); font-size: 0.93rem; font-weight: 300; }
+
+    /* ---------- COMANDOS ---------- */
+    .commands { display: grid; gap: 10px; }
+    .cmd {
+      display: flex; gap: 18px; align-items: center;
+      background: var(--bg-soft); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 18px;
+    }
+    .cmd code {
+      font-family: ui-monospace, "SF Mono", Consolas, monospace;
+      color: var(--accent); background: var(--bg-deep);
+      padding: 4px 10px; border-radius: 6px; font-size: 0.88rem; white-space: nowrap;
+    }
+    .cmd span { color: var(--text-dim); font-size: 0.93rem; }
+
+    /* ---------- PIE ---------- */
+    /* ---------- LÍNEAS SEPARADORAS (estilo Components V2 de Discord) ---------- */
+    .divider {
+      border: none;
+      height: 1px;
+      background: var(--border);   /* ✏️ color de la línea */
+      margin: 0;
+    }
+
+    /* ---------- PIE: BARRA AL FINAL DE LA PÁGINA ---------- */
+    /* La barra está al final de la página (no se desplaza con el scroll) y no se mezcla con el contenido */
+    footer {
+      background: var(--bg-deep);              /* ✏️ color de la barra */
+      border-top: 1px solid var(--border);
+      padding: 16px 0;
+    }
+    .footer-links {
+      display: flex; gap: 8px; flex-wrap: nowrap; justify-content: center;
+    }
+    .footer-btn {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--bg-soft); border: 1px solid var(--border);
+      border-radius: 8px; padding: 7px 14px;
+      font-weight: 500; font-size: 0.82rem;
+      transition: border-color 0.25s;          /* solo el resaltador, sin animación de subida */
+    }
+    .footer-btn:hover { border-color: var(--accent); }
+    .footer-btn .icon { font-size: 0.95rem; }
+
+    @media (max-width: 600px) {
+      .links { gap: 14px; font-size: 0.85rem; }
+      .cmd { flex-direction: column; align-items: flex-start; gap: 8px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+      .fade, .reveal { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==========================================================
+       NAVEGACIÓN
+       ========================================================== -->
+  <nav>
+    <div class="wrap">
+      <!-- ✏️ EDITAR: nombre/logo de la esquina superior (la parte en <span> sale en turquesa) -->
+      <a href="#inicio" class="logo">C<span>PU</span></a>
+
+      <div class="links">
+        <!-- ✏️ EDITAR: textos del menú. El href debe coincidir con el id de cada sección -->
+        <a href="#funciones">Funciones</a>
+        <a href="comandos.html">Comandos</a>
+        <a href="#contacto">Contacto</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ==========================================================
+       HERO (pantalla principal)
+       ========================================================== -->
+  <header class="wrap hero" id="inicio">
+    <!-- ✏️ EDITAR: etiqueta pequeña sobre el título -->
+    <div class="badge fade d1">Versión 2 · Beta</div>
+
+    <!-- ✏️ EDITAR: título principal. Lo que va dentro de <em> lleva degradado turquesa → cian -->
+    <h1 class="fade d2">Conoce a <em>CPU</em></h1>
+
+    <!-- ✏️ EDITAR: descripción bajo el título -->
+    <p class="fade d3">
+      Un bot de Discord simple y potente para moderar tu servidor,
+      gestionar postulaciones y facilitarte el día a día.
+    </p>
+
+    <div class="buttons fade d4">
+      <!-- ✏️ EDITAR: texto y enlace del botón principal (pon aquí el link de invitación de tu bot) -->
+      <a href="#" class="btn btn-primary">Invitar a CPU</a>
+
+      <!-- ✏️ EDITAR: texto del botón del dashboard. Al hacer clic pide iniciar sesión con Discord -->
+      <a href="dashboard.html" class="btn btn-ghost">Dashboard</a>
+    </div>
+  </header>
+
+  <!-- ==========================================================
+       FUNCIONES (tarjetas)
+       ========================================================== -->
+  <!-- ➖ Línea separadora (copia esta línea para añadir más separadores) -->
+  <div class="wrap"><hr class="divider" /></div>
+
+  <section id="funciones">
+    <div class="wrap">
+      <!-- ✏️ EDITAR: título y subtítulo de la sección -->
+      <h2 class="section-title reveal">Lo que hace CPU</h2>
+      <p class="section-sub reveal">Todo lo esencial, sin complicaciones.</p>
+
+      <div class="grid">
+        <!-- ✏️ EDITAR: cada .card es una tarjeta. Cambia el emoji (icon), título (h3) y texto (p).
+             Para añadir una más, copia y pega un bloque <div class="card reveal">…</div> completo. -->
+
+        <div class="card reveal">
+          <div class="icon">🛡️</div>
+          <h3>Moderación</h3>
+          <p>Herramientas rápidas para mantener tu servidor ordenado y seguro.</p>
+        </div>
+
+        <div class="card reveal">
+          <div class="icon">📋</div>
+          <h3>Postulaciones</h3>
+          <p>Recibe y gestiona solicitudes de tu comunidad de forma organizada.</p>
+        </div>
+
+        <div class="card reveal">
+          <div class="icon">⚡</div>
+          <h3>Utilidad</h3>
+          <p>Comandos prácticos para el día a día de tu servidor.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       COMANDOS
+       ========================================================== -->
+  <div class="wrap"><hr class="divider" /></div>
+
+  <section id="comandos">
+    <div class="wrap" style="text-align:center;">
+      <!-- ✏️ EDITAR: título, texto y botón que lleva a la página con todos los comandos -->
+      <h2 class="section-title reveal">Todos los comandos</h2>
+      <p class="section-sub reveal">Consulta la lista completa de lo que CPU puede hacer.</p>
+
+      <!-- ✏️ EDITAR: href = archivo de la página de comandos (la crearemos después) -->
+      <a href="comandos.html" class="btn btn-ghost reveal">Ir a comandos</a>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       CONTACTO
+       ========================================================== -->
+  <div class="wrap"><hr class="divider" /></div>
+
+  <section id="contacto">
+    <div class="wrap" style="text-align:center;">
+      <!-- ✏️ EDITAR: título, texto y botón de la sección de contacto -->
+      <h2 class="section-title reveal">¿Dudas o sugerencias?</h2>
+      <p class="section-sub reveal">Únete al servidor de soporte y cuéntanos.</p>
+
+      <!-- ✏️ EDITAR: link de tu servidor de Discord -->
+      <a href="#" class="btn btn-primary reveal">Unirme al servidor</a>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       PIE DE PÁGINA
+       ========================================================== -->
+  <footer>
+    <div class="wrap footer-links">
+      <!-- ✏️ EDITAR: cada .footer-btn es un botón. Cambia el emoji (icon), el texto y el href.
+           Para añadir más botones, copia y pega un bloque <a class="footer-btn">…</a> completo. -->
+
+      <!-- Botón: Discord (pon aquí el link de tu servidor) -->
+      <a href="#" class="footer-btn" target="_blank" rel="noopener">
+        <span class="icon">💬</span> Discord
+      </a>
+
+      <!-- Botón: Github (pon aquí el link de tu perfil o repositorio) -->
+      <a href="#" class="footer-btn" target="_blank" rel="noopener">
+        <span class="icon">💻</span> Github
+      </a>
+
+      <!-- Botón: Contacto (puede ser un mailto:tucorreo@ejemplo.com o la sección #contacto) -->
+      <a href="#contacto" class="footer-btn">
+        <span class="icon">✉️</span> Contacto
+      </a>
+    </div>
+  </footer>
+
+  <!-- Script: hace que las secciones aparezcan suavemente al hacer scroll (no necesitas tocarlo) -->
+  <script>
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) { e.target.classList.add("visible"); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.15 });
+    document.querySelectorAll(".reveal").forEach(el => io.observe(el));
+  </script>
+</body>
+</html>
