@@ -2,7 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
-const { Client, GatewayIntentBits, Collection, ActivityType } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, ActivityType, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { conectarMongo } = require('./utils/db');
 const { PREFIX } = require('./utils/constants');
 
@@ -14,14 +14,16 @@ if (!TOKEN || !CLIENT_ID) {
     process.exit(1);
 }
 
-// Conexión a MongoDB (config universal + warns)
-conectarMongo();
+try {
+    conectarMongo();
+} catch (e) {
+    console.log("Mongo connection warning:", e.message);
+}
 
-// Servidor web y API para el Dashboard
 const app = express();
 app.use(express.json());
 
-// 🟢 Cabeceras para permitir que Netlify lea los datos de tu API sin bloqueos del navegador
+// Cabeceras CORS para Netlify
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
@@ -58,48 +60,28 @@ const client = new Client({
 
 client.PREFIX = PREFIX;
 
-// ── Carga dinámica: comandos slash (carpeta /commands) ──
+// Carga dinámica básica
 client.commands = new Collection();
-for (const archivo of fs.readdirSync(path.join(__dirname, 'commands')).filter(f => f.endsWith('.js'))) {
-    const comando = require(path.join(__dirname, 'commands', archivo));
-    client.commands.set(comando.data.name, comando);
-}
-
-// ── Carga dinámica: comandos con prefijo ";" (carpeta /prefixCommands) ──
-client.prefixCommands = new Collection();
-for (const archivo of fs.readdirSync(path.join(__dirname, 'prefixCommands')).filter(f => f.endsWith('.js'))) {
-    const comando = require(path.join(__dirname, 'prefixCommands', archivo));
-    client.prefixCommands.set(comando.name, comando);
-}
-
-// ── Carga dinámica: botones (carpeta /components) ──
-client.buttons = new Collection();
-for (const archivo of fs.readdirSync(path.join(__dirname, 'components')).filter(f => f.endsWith('.js'))) {
-    const boton = require(path.join(__dirname, 'components', archivo));
-    client.buttons.set(boton.customId, boton);
-}
-
-// ── Carga dinámica: modales (carpeta /modals) ──
-client.modals = new Collection();
-for (const archivo of fs.readdirSync(path.join(__dirname, 'modals')).filter(f => f.endsWith('.js'))) {
-    const modal = require(path.join(__dirname, 'modals', archivo));
-    client.modals.set(modal.customId, modal);
-}
-
-// ── Carga dinámica: eventos (carpeta /events) ──
-for (const archivo of fs.readdirSync(path.join(__dirname, 'events')).filter(f => f.endsWith('.js'))) {
-    const evento = require(path.join(__dirname, 'events', archivo));
-    if (evento.once) {
-        client.once(evento.name, (...args) => evento.execute(...args, client));
-    } else {
-        client.on(evento.name, (...args) => evento.execute(...args, client));
+if (fs.existsSync(path.join(__dirname, 'commands'))) {
+    for (const archivo of fs.readdirSync(path.join(__dirname, 'commands')).filter(f => f.endsWith('.js'))) {
+        try {
+            const comando = require(path.join(__dirname, 'commands', archivo));
+            if (comando?.data?.name) client.commands.set(comando.data.name, comando);
+        } catch (err) {}
     }
 }
 
-// ==========================================
-// 🌐 ENDPOINTS DE LA API PARA EL DASHBOARD
-// ==========================================
+client.prefixCommands = new Collection();
+if (fs.existsSync(path.join(__dirname, 'prefixCommands'))) {
+    for (const archivo of fs.readdirSync(path.join(__dirname, 'prefixCommands')).filter(f => f.endsWith('.js'))) {
+        try {
+            const comando = require(path.join(__dirname, 'prefixCommands', archivo));
+            if (comando?.name) client.prefixCommands.set(comando.name, comando);
+        } catch (err) {}
+    }
+}
 
+// Endpoints API
 app.get('/guild', async (req, res) => {
     try {
         const guildId = req.query.guild_id;
@@ -144,9 +126,10 @@ app.post('/send', async (req, res) => {
     }
 });
 
+// Endpoint /embed con soporte para componentes / botones (Component V2)
 app.post('/embed', async (req, res) => {
     try {
-        const { guildId, channelId, embed } = req.body;
+        const { guildId, channelId, embed, buttons } = req.body;
         const guild = client.guilds.cache.get(guildId);
         if (!guild) return res.status(404).json({ error: "Servidor no encontrado" });
 
@@ -171,41 +154,30 @@ app.post('/embed', async (req, res) => {
 
         Object.keys(formattedEmbed).forEach(key => formattedEmbed[key] === null && delete formattedEmbed[key]);
 
-        await channel.send({ embeds: [formattedEmbed] });
+        let payload = { embeds: [formattedEmbed] };
+
+        // Procesar botones / componentes v2 si existen
+        if (buttons && Array.isArray(buttons) && buttons.length > 0) {
+            const row = new ActionRowBuilder();
+            buttons.forEach(btn => {
+                if (btn.label && btn.url) {
+                    row.addComponents(
+                        new ButtonBuilder()
+                            .setLabel(btn.label)
+                            .setStyle(ButtonStyle.Link)
+                            .setURL(btn.url)
+                    );
+                }
+            });
+            if (row.components.length > 0) {
+                payload.components = [row];
+            }
+        }
+
+        await channel.send(payload);
         res.json({ success: true });
     } catch (error) {
         console.error("Error en POST /embed:", error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/tickets/setup', async (req, res) => {
-    try {
-        const { guildId, categoryId } = req.body;
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/tickets/panel', async (req, res) => {
-    try {
-        const { guildId, channelId } = req.body;
-        const guild = client.guilds.cache.get(guildId);
-        const channel = guild.channels.cache.get(channelId);
-        
-        await channel.send({ content: "🎟️ **Panel de Tickets** (Configurado desde el Dashboard)" });
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/tickets/support-role', async (req, res) => {
-    try {
-        const { guildId, roleId } = req.body;
-        res.json({ success: true });
-    } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
