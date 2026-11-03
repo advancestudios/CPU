@@ -60,7 +60,7 @@ const client = new Client({
 
 client.PREFIX = PREFIX;
 
-// Carga dinámica básica
+// ── Carga dinámica: comandos slash (carpeta /commands) ──
 client.commands = new Collection();
 if (fs.existsSync(path.join(__dirname, 'commands'))) {
     for (const archivo of fs.readdirSync(path.join(__dirname, 'commands')).filter(f => f.endsWith('.js'))) {
@@ -71,6 +71,7 @@ if (fs.existsSync(path.join(__dirname, 'commands'))) {
     }
 }
 
+// ── Carga dinámica: comandos con prefijo (carpeta /prefixCommands) ──
 client.prefixCommands = new Collection();
 if (fs.existsSync(path.join(__dirname, 'prefixCommands'))) {
     for (const archivo of fs.readdirSync(path.join(__dirname, 'prefixCommands')).filter(f => f.endsWith('.js'))) {
@@ -81,7 +82,26 @@ if (fs.existsSync(path.join(__dirname, 'prefixCommands'))) {
     }
 }
 
-// Endpoints API
+// ── Carga dinámica: eventos (carpeta /events) ➔ ¡ESTO FALTABA! ──
+if (fs.existsSync(path.join(__dirname, 'events'))) {
+    for (const archivo of fs.readdirSync(path.join(__dirname, 'events')).filter(f => f.endsWith('.js'))) {
+        try {
+            const evento = require(path.join(__dirname, 'events', archivo));
+            if (evento.once) {
+                client.once(evento.name, (...args) => evento.execute(...args, client));
+            } else {
+                client.on(evento.name, (...args) => evento.execute(...args, client));
+            }
+        } catch (err) {
+            console.error(`Error al cargar el evento ${archivo}:`, err);
+        }
+    }
+}
+
+// ==========================================
+// 🌐 ENDPOINTS DE LA API PARA EL DASHBOARD
+// ==========================================
+
 app.get('/guild', async (req, res) => {
     try {
         const guildId = req.query.guild_id;
@@ -126,7 +146,6 @@ app.post('/send', async (req, res) => {
     }
 });
 
-// Endpoint /embed con soporte para componentes / botones (Component V2)
 app.post('/embed', async (req, res) => {
     try {
         const { guildId, channelId, embed, buttons } = req.body;
@@ -156,7 +175,6 @@ app.post('/embed', async (req, res) => {
 
         let payload = { embeds: [formattedEmbed] };
 
-        // Procesar botones / componentes v2 si existen
         if (buttons && Array.isArray(buttons) && buttons.length > 0) {
             const row = new ActionRowBuilder();
             buttons.forEach(btn => {
