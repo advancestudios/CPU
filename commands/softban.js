@@ -32,8 +32,8 @@ module.exports = {
             .setTitle('🧹 Miembro Expulsado (Softban)')
             .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
             .addFields(
-                { name: 'Miembro', value: `${miembroObjetivo.user}`, inline: true },
-                { name: 'Moderador', value: `${miembroObjetivo.user}`, inline: true },
+                { name: 'Miembro', value: `${usuario}`, inline: true },
+                { name: 'Moderador', value: `${user}`, inline: true },
                 { name: 'Razón', value: razon, inline: false }
             )
             .setFooter({ text: 'CPU v2' })
@@ -43,7 +43,7 @@ module.exports = {
             await guild.members.ban(usuario.id, { reason: razon, deleteMessageSeconds: segundosBorrar });
             await guild.members.unban(usuario.id, 'Softban: se libera el baneo tras limpiar mensajes').catch(() => {});
             await logModeracion(guild, embed);
-            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
         } catch (error) {
             console.error('Error en /softban:', error);
             return interaction.reply({ content: '<:x_icon:1553581267600146483> Ocurrió un error al intentar aplicar el softban.', ephemeral: true });

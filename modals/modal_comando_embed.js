@@ -54,6 +54,11 @@ module.exports = {
                 );
             }
 
+            const textoTotal = (titulo || '').trim().length + (contenido || '').replace(/\{sp\}/g, '').trim().length + (footer || '').trim().length;
+            if (textoTotal > 3900) {
+                return interaction.reply({ content: '<:warn_icon:1552150324154998804> El texto es demasiado largo: Discord solo permite unos 4000 caracteres en total (título + contenido + footer).', ephemeral: true });
+            }
+
             await interaction.channel.send({
                 components: [container],
                 flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] }

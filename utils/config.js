@@ -45,4 +45,12 @@ function esMiembroStaff(member, guildId) {
     return false;
 }
 
-module.exports = { obtenerConfig, guardarConfig, getGuildConfig, setGuildConfig, esMiembroStaff };
+// Quién puede tomar/cerrar tickets: el Staff + el rol de soporte (/setup-rol-soporte).
+// Es aparte de esMiembroStaff para que el rol de soporte NO reciba comandos de moderación.
+function puedeGestionarTickets(member, guildId) {
+    if (esMiembroStaff(member, guildId)) return true;
+    const cfg = getGuildConfig(guildId);
+    return !!(cfg.ticketsRole && member.roles.cache.has(cfg.ticketsRole));
+}
+
+module.exports = { obtenerConfig, guardarConfig, getGuildConfig, setGuildConfig, esMiembroStaff, puedeGestionarTickets };

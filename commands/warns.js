@@ -27,6 +27,8 @@ module.exports = {
         const sub = options.getSubcommand();
         const idWarn = warnKey(guild.id, usuario.id);
 
+        await interaction.deferReply();
+
         try {
             const registroWarns = await WarnModel.findOne({ key: idWarn });
             const usuarioWarns = registroWarns ? registroWarns.warns : [];
@@ -42,7 +44,7 @@ module.exports = {
                             { name: 'Miembro', value: `${usuario}`, inline: true },
                             { name: 'Estado', value: 'Sin advertencias', inline: true }
                          );
-                    return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
+                    return interaction.editReply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
                 }
 
                 embed.setTitle('📋 Historial de Advertencias')
@@ -51,19 +53,22 @@ module.exports = {
                         { name: 'Total', value: `${usuarioWarns.length}`, inline: true }
                      );
 
-                usuarioWarns.forEach((w, index) => {
+                const MAX_MOSTRAR = 10; // Discord limita el texto total de un mensaje a 4000 caracteres
+                const inicio = Math.max(0, usuarioWarns.length - MAX_MOSTRAR);
+                usuarioWarns.slice(inicio).forEach((w, i) => {
                     embed.addFields({
-                        name: `#${index + 1} —${w.fecha}`,
-                        value: `Mod: ${w.moderador} • Razón: ${w.razon}`
+                        name: `#${inicio + i + 1} — ${w.fecha}`,
+                        value: `Mod: ${w.moderador} • Razón: ${String(w.razon).slice(0, 200)}`
                     });
                 });
+                if (inicio > 0) embed.setFooter({ text: `Mostrando las últimas ${MAX_MOSTRAR} de ${usuarioWarns.length}` });
 
-                return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
+                return interaction.editReply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
             }
 
             if (sub === 'clear') {
                 if (usuarioWarns.length === 0) {
-                    return interaction.reply({ content: `ℹ️ **${usuario}** ya no tiene advertencias registradas.`, ephemeral: true });
+                    return interaction.editReply({ content: `ℹ️ **${usuario.user.username}** no tiene advertencias registradas.` });
                 }
 
                 await WarnModel.deleteOne({ key: idWarn });
@@ -77,11 +82,11 @@ module.exports = {
                     .setFooter({ text: 'CPU v2' })
                     .setTimestamp();
 
-                return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
+                return interaction.editReply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
             }
         } catch (error) {
             console.error('Error en /warns:', error);
-            return interaction.reply({ content: '<:x_icon:1553581267600146483> Ocurrió un error al procesar la solicitud con MongoDB.', ephemeral: true });
+            return interaction.editReply({ content: '<:x_icon:1553581267600146483> Ocurrió un error al procesar la solicitud con MongoDB.' });
         }
     }
 };

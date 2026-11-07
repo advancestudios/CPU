@@ -33,36 +33,38 @@ module.exports = {
 
         if (sub === 'add') {
             if (usuario.roles.cache.has(rol.id)) return interaction.reply({ content: `ℹ️ El miembro ya posee el rol **${rol.name}**.`, ephemeral: true });
-            await usuario.roles.add(rol);
+            try { await usuario.roles.add(rol); }
+            catch (e) { console.error('Error en /role add:', e); return interaction.reply({ content: '<:x_icon:1553581267600146483> No pude asignar ese rol (revisa mis permisos y la jerarquía).', ephemeral: true }); }
 
             const embed = new EmbedBuilder()
                 .setTitle('➕ Rol Asignado')
                 .addFields(
-                    { name: 'Miembro', value: `${miembroObjetivo.user}`, inline: true },
+                    { name: 'Miembro', value: `${usuario}`, inline: true },
                     { name: 'Rol', value: `<@&${rol.id}>`, inline: true },
-                    { name: 'Moderador', value: `${miembroObjetivo.user}`, inline: true }
+                    { name: 'Moderador', value: `${user}`, inline: true }
                 )
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
-            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
         }
 
         if (sub === 'remove') {
             if (!usuario.roles.cache.has(rol.id)) return interaction.reply({ content: `ℹ️ El miembro no cuenta con el rol **${rol.name}**.`, ephemeral: true });
-            await usuario.roles.remove(rol);
+            try { await usuario.roles.remove(rol); }
+            catch (e) { console.error('Error en /role remove:', e); return interaction.reply({ content: '<:x_icon:1553581267600146483> No pude quitar ese rol (revisa mis permisos y la jerarquía).', ephemeral: true }); }
 
             const embed = new EmbedBuilder()
                 .setTitle('➖ Rol Removido')
                 .addFields(
-                    { name: 'Miembro', value: `${miembroObjetivo.user}`, inline: true },
+                    { name: 'Miembro', value: `${usuario}`, inline: true },
                     { name: 'Rol', value: `<@&${rol.id}>`, inline: true },
-                    { name: 'Moderador', value: `${miembroObjetivo.user}`, inline: true }
+                    { name: 'Moderador', value: `${user}`, inline: true }
                 )
                 .setFooter({ text: 'CPU v2' })
                 .setTimestamp();
 
-            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 });
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
         }
     }
 };

@@ -1,5 +1,5 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
-const { esMiembroStaff } = require('../utils/config');
+const { puedeGestionarTickets } = require('../utils/config');
 const { embedToContainer, construirEmbedTicket } = require('../utils/embeds');
 
 module.exports = {
@@ -7,7 +7,7 @@ module.exports = {
     async execute(interaction) {
         const { guild, member, channel } = interaction;
 
-        if (!esMiembroStaff(member, guild.id)) {
+        if (!puedeGestionarTickets(member, guild.id)) {
             return interaction.reply({ content: '<:x_icon:1553581267600146483> No tienes permiso para tomar este ticket.', ephemeral: true });
         }
 

@@ -37,7 +37,7 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setTitle('✏️ Apodo Actualizado')
                 .addFields(
-                    { name: 'Miembro', value: `${usuario}`, inline: true },
+                    { name: 'Miembro', value: `${miembroObjetivo}`, inline: true },
                     { name: 'Nuevo Apodo', value: nuevoApodo || 'Restablecido', inline: true },
                     { name: 'Moderador', value: `${user}`, inline: true }
                 )
@@ -46,6 +46,7 @@ module.exports = {
 
             return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
         } catch (error) {
+            console.error('Error en /nick:', error);
             return interaction.reply({ content: '<:x_icon:1553581267600146483> Error al modificar el apodo.', ephemeral: true });
         }
     }

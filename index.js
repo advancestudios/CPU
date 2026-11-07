@@ -2,9 +2,10 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
-const { Client, GatewayIntentBits, Collection, ActivityType, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, ActivityType } = require('discord.js');
 const { conectarMongo } = require('./utils/db');
 const { PREFIX } = require('./utils/constants');
+const { montarApi } = require('./api');
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -22,14 +23,6 @@ try {
 
 const app = express();
 app.use(express.json());
-
-// Cabeceras CORS para Netlify
-app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    next();
-});
 
 const PORT = process.env.PORT || 3000;
 
@@ -60,145 +53,52 @@ const client = new Client({
 
 client.PREFIX = PREFIX;
 
-// ── Carga dinámica: comandos slash (carpeta /commands) ──
-client.commands = new Collection();
-if (fs.existsSync(path.join(__dirname, 'commands'))) {
-    for (const archivo of fs.readdirSync(path.join(__dirname, 'commands')).filter(f => f.endsWith('.js'))) {
+// ── Carga dinámica de módulos ──
+// Si un archivo tiene un error, se avisa en la consola (antes se ignoraba en silencio
+// y el comando/botón simplemente "no existía").
+function cargarCarpeta(carpeta, alCargar) {
+    const dir = path.join(__dirname, carpeta);
+    if (!fs.existsSync(dir)) return 0;
+    let total = 0;
+    for (const archivo of fs.readdirSync(dir).filter(f => f.endsWith('.js'))) {
         try {
-            const comando = require(path.join(__dirname, 'commands', archivo));
-            if (comando?.data?.name) client.commands.set(comando.data.name, comando);
-        } catch (err) {}
-    }
-}
-
-// ── Carga dinámica: comandos con prefijo (carpeta /prefixCommands) ──
-client.prefixCommands = new Collection();
-if (fs.existsSync(path.join(__dirname, 'prefixCommands'))) {
-    for (const archivo of fs.readdirSync(path.join(__dirname, 'prefixCommands')).filter(f => f.endsWith('.js'))) {
-        try {
-            const comando = require(path.join(__dirname, 'prefixCommands', archivo));
-            if (comando?.name) client.prefixCommands.set(comando.name, comando);
-        } catch (err) {}
-    }
-}
-
-// ── Carga dinámica: eventos (carpeta /events) ➔ ¡ESTO FALTABA! ──
-if (fs.existsSync(path.join(__dirname, 'events'))) {
-    for (const archivo of fs.readdirSync(path.join(__dirname, 'events')).filter(f => f.endsWith('.js'))) {
-        try {
-            const evento = require(path.join(__dirname, 'events', archivo));
-            if (evento.once) {
-                client.once(evento.name, (...args) => evento.execute(...args, client));
-            } else {
-                client.on(evento.name, (...args) => evento.execute(...args, client));
-            }
+            alCargar(require(path.join(dir, archivo)), archivo);
+            total++;
         } catch (err) {
-            console.error(`Error al cargar el evento ${archivo}:`, err);
+            console.error(`❌ No se pudo cargar ${carpeta}/${archivo}:`, err);
         }
     }
+    return total;
 }
 
-// ==========================================
-// 🌐 ENDPOINTS DE LA API PARA EL DASHBOARD
-// ==========================================
+client.commands = new Collection();        // /comandos (carpeta commands)
+client.prefixCommands = new Collection();  // ;comandos (carpeta prefixCommands)
+client.buttons = new Collection();         // botones (carpeta components)  ← faltaba
+client.modals = new Collection();          // formularios (carpeta modals)  ← faltaba
 
-app.get('/guild', async (req, res) => {
-    try {
-        const guildId = req.query.guild_id;
-        if (!guildId) return res.status(400).json({ error: "Falta el parámetro guild_id" });
-
-        const guild = client.guilds.cache.get(guildId);
-        if (!guild) return res.status(404).json({ error: "El bot no está en este servidor o no está disponible" });
-
-        const channels = guild.channels.cache
-            .filter(c => c.type === 0)
-            .map(c => ({ id: c.id, name: c.name }));
-
-        const categories = guild.channels.cache
-            .filter(c => c.type === 4)
-            .map(c => ({ id: c.id, name: c.name }));
-
-        const roles = guild.roles.cache
-            .filter(r => r.id !== guild.id)
-            .map(r => ({ id: r.id, name: r.name }));
-
-        res.json({ channels, categories, roles });
-    } catch (error) {
-        console.error("Error en GET /guild:", error);
-        res.status(500).json({ error: "Error interno del servidor" });
-    }
-});
-
-app.post('/send', async (req, res) => {
-    try {
-        const { guildId, channelId, content } = req.body;
-        const guild = client.guilds.cache.get(guildId);
-        if (!guild) return res.status(404).json({ error: "Servidor no encontrado" });
-
-        const channel = guild.channels.cache.get(channelId);
-        if (!channel) return res.status(404).json({ error: "Canal no encontrado" });
-
-        await channel.send({ content });
-        res.json({ success: true });
-    } catch (error) {
-        console.error("Error en POST /send:", error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/embed', async (req, res) => {
-    try {
-        const { guildId, channelId, embed, buttons } = req.body;
-        const guild = client.guilds.cache.get(guildId);
-        if (!guild) return res.status(404).json({ error: "Servidor no encontrado" });
-
-        const channel = guild.channels.cache.get(channelId);
-        if (!channel) return res.status(404).json({ error: "Canal no encontrado" });
-
-        const processText = (text) => text ? text.replace(/\{sp\}/g, '\n') : text;
-
-        const formattedEmbed = {
-            title: processText(embed.title),
-            description: processText(embed.description),
-            color: embed.color || null,
-            footer: embed.footer ? { text: processText(embed.footer) } : null,
-            thumbnail: embed.thumbnail ? { url: embed.thumbnail } : null,
-            image: embed.image ? { url: embed.image } : null,
-            timestamp: embed.timestamp ? new Date() : null,
+const n = {
+    slash: cargarCarpeta('commands', (c, f) => { if (!c?.data?.name) throw new Error(`${f} no tiene "data.name"`); client.commands.set(c.data.name, c); }),
+    prefijo: cargarCarpeta('prefixCommands', (c, f) => { if (!c?.name) throw new Error(`${f} no tiene "name"`); client.prefixCommands.set(c.name, c); }),
+    botones: cargarCarpeta('components', (c, f) => { if (!c?.customId) throw new Error(`${f} no tiene "customId"`); client.buttons.set(c.customId, c); }),
+    modales: cargarCarpeta('modals', (c, f) => { if (!c?.customId) throw new Error(`${f} no tiene "customId"`); client.modals.set(c.customId, c); }),
+    eventos: cargarCarpeta('events', (e) => {
+        // Los errores de un evento se capturan aquí para que nunca tumben el bot
+        const manejar = async (...args) => {
+            try { await e.execute(...args, client); }
+            catch (err) { console.error(`Error en el evento ${e.name}:`, err); }
         };
+        e.once ? client.once(e.name, manejar) : client.on(e.name, manejar);
+    })
+};
+console.log(`📦 Cargados: ${n.slash} comandos /, ${n.prefijo} comandos ;, ${n.botones} botones, ${n.modales} formularios, ${n.eventos} eventos`);
 
-        if (embed.author) {
-            formattedEmbed.author = { name: processText(embed.author) };
-        }
+// Un error suelto no debe apagar el bot
+process.on('unhandledRejection', (err) => console.error('⚠️ Promesa rechazada sin capturar:', err));
+process.on('uncaughtException', (err) => console.error('⚠️ Error sin capturar:', err));
+client.on('error', (err) => console.error('⚠️ Error del cliente de Discord:', err));
 
-        Object.keys(formattedEmbed).forEach(key => formattedEmbed[key] === null && delete formattedEmbed[key]);
-
-        let payload = { embeds: [formattedEmbed] };
-
-        if (buttons && Array.isArray(buttons) && buttons.length > 0) {
-            const row = new ActionRowBuilder();
-            buttons.forEach(btn => {
-                if (btn.label && btn.url) {
-                    row.addComponents(
-                        new ButtonBuilder()
-                            .setLabel(btn.label)
-                            .setStyle(ButtonStyle.Link)
-                            .setURL(btn.url)
-                    );
-                }
-            });
-            if (row.components.length > 0) {
-                payload.components = [row];
-            }
-        }
-
-        await channel.send(payload);
-        res.json({ success: true });
-    } catch (error) {
-        console.error("Error en POST /embed:", error);
-        res.status(500).json({ error: error.message });
-    }
-});
+// 🌐 API del dashboard (rutas en api.js)
+montarApi(app, client);
 
 app.listen(PORT, () => console.log(`🌐 [CPU v2] Servidor web y API activos en el puerto ${PORT}`));
 

@@ -1,4 +1,4 @@
-const { esMiembroStaff } = require('../utils/config');
+const { puedeGestionarTickets } = require('../utils/config');
 
 module.exports = {
     customId: 'cerrar_ticket',
@@ -7,7 +7,7 @@ module.exports = {
         const topic = channel.topic || '';
         const ownerId = topic.startsWith('ticket-owner:') ? topic.split(':')[1] : null;
         const esDueño = ownerId === member.id;
-        const esStaff = esMiembroStaff(member, guild.id);
+        const esStaff = puedeGestionarTickets(member, guild.id);
 
         if (!esDueño && !esStaff) {
             return interaction.reply({ content: '<:x_icon:1553581267600146483> No tienes permiso para cerrar este ticket.', ephemeral: true });

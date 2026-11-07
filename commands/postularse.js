@@ -80,7 +80,7 @@ module.exports = {
                                 time: 180000,
                                 errors: ['time']
                             });
-                            respuestas.push(resp.first().content);
+                            respuestas.push(resp.first().content.slice(0, 700) || '(sin texto)');
                         } catch (e) {
                             return dmChannel.send('⏳ Se agotó el tiempo de respuesta. Postulación cancelada.');
                         }

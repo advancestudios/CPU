@@ -19,10 +19,12 @@ module.exports = {
         if (!usuario) return interaction.reply({ content: '<:x_icon:1553581267600146483> El objetivo especificado no se encuentra en el servidor.', ephemeral: true });
         if (usuario.user.bot) return interaction.reply({ content: '<:x_icon:1553581267600146483> Los perfiles automatizados (bots) no pueden recibir amonestaciones.', ephemeral: true });
 
+        await interaction.deferReply();
+
         try {
             const idWarn = warnKey(guild.id, usuario.id);
             const nuevaAdvertencia = {
-                moderador: user.tag,
+                moderador: user.username,
                 razon: razon,
                 fecha: new Date().toLocaleDateString()
             };
@@ -48,10 +50,10 @@ module.exports = {
                 .setTimestamp();
 
             await logModeracion(guild, embed);
-            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
+            return interaction.editReply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
         } catch (error) {
             console.error('Error en /warn:', error);
-            return interaction.reply({ content: '<:x_icon:1553581267600146483> Ocurrió un error al registrar la advertencia.', ephemeral: true });
+            return interaction.editReply({ content: '<:x_icon:1553581267600146483> Ocurrió un error al registrar la advertencia (¿está conectada la base de datos?).', components: [] });
         }
     }
 };
