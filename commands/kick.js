@@ -21,7 +21,7 @@ module.exports = {
             await usuario.kick(razon);
 
             const embed = new EmbedBuilder()
-                .setTitle('<:kick_icon:1552295636144103506> Miembro Expulsado')
+                .setTitle('<:kick_icon:1553579972977889440> Miembro Expulsado')
                 .setThumbnail(usuario.user.displayAvatarURL({ dynamic: true }))
                 .addFields(
                     { name: 'Miembro', value: `${usuario}`, inline: true },
