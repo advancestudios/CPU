@@ -22,6 +22,15 @@ module.exports = {
                .setDescription('Establece el enlace del servidor de apelaciones (se usa solo en /ban)')
                .addStringOption(opt => opt.setName('enlace').setDescription('Enlace de invitación de Discord').setRequired(true))
         )
+        .addSubcommand(sub =>
+            sub.setName('anuncios')
+               .setDescription('Establece el canal donde llegarán los anuncios y novedades de CPU')
+               .addChannelOption(opt => opt.setName('canal').setDescription('Canal de anuncios').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement).setRequired(true))
+        )
+        .addSubcommand(sub =>
+            sub.setName('anuncios-quitar')
+               .setDescription('Deja de recibir los anuncios y novedades de CPU en este servidor')
+        )
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     async execute(interaction) {
@@ -52,6 +61,28 @@ module.exports = {
                 .setTimestamp();
 
             return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+        }
+
+        if (sub === 'anuncios') {
+            const canal = options.getChannel('canal');
+            const permisos = canal.permissionsFor(guild.members.me);
+            if (!permisos || !permisos.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
+                return interaction.reply({ content: `<:warn_icon:1552150324154998804> No tengo permiso para ver y escribir en <#${canal.id}>. Dame esos permisos y vuelve a intentarlo.`, ephemeral: true });
+            }
+            setGuildConfig(guild.id, { anunciosCanal: canal.id });
+
+            const embed = new EmbedBuilder()
+                .setTitle('📣 Canal de Anuncios Configurado')
+                .addFields({ name: 'Canal', value: `<#${canal.id}>` }, { name: 'Qué llegará aquí', value: 'Las novedades y actualizaciones de CPU.' })
+                .setFooter({ text: 'CPU v2' })
+                .setTimestamp();
+
+            return interaction.reply({ components: [embedToContainer(embed)], flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral });
+        }
+
+        if (sub === 'anuncios-quitar') {
+            setGuildConfig(guild.id, { anunciosCanal: null });
+            return interaction.reply({ content: '<:check_icon:1553581296398114846> Listo, este servidor ya no recibirá los anuncios de CPU.', ephemeral: true });
         }
 
         if (sub === 'apelaciones') {

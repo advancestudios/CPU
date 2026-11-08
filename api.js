@@ -8,7 +8,8 @@ const {
     MessageFlags
 } = require('discord.js');
 const { normalizarEmbed, normalizarBotones, construirContainerV2, MAX_TEXTO } = require('./utils/embedV2');
-const { setGuildConfig, getGuildConfig } = require('./utils/config');
+const { setGuildConfig, getGuildConfig, obtenerConfig } = require('./utils/config');
+const { CREADORES_IDS } = require('./utils/constants');
 const { embedToContainer } = require('./utils/embeds');
 
 // ================================================
@@ -21,6 +22,9 @@ const { embedToContainer } = require('./utils/embeds');
 //   POST /guilds/available   de una lista de servidores, cuáles tienen al bot (y donde eres admin)
 //   POST /send               mensaje normal
 //   POST /embed              embed en Components V2 (igual que el comando /embed)
+//   GET  /me                 dice si quien inicia sesión es creador del bot (CREADORES_IDS en utils/constants.js)
+//   GET  /announce/stats     (solo creadores) a cuántos servidores llegaría un anuncio
+//   POST /announce           (solo creadores) envía un anuncio al canal de anuncios de cada servidor
 //   POST /tickets/setup | /tickets/panel | /tickets/support-role
 //
 // Opcional: ALLOWED_ORIGINS=https://tu-sitio.netlify.app  (varias separadas por coma)
@@ -184,19 +188,16 @@ function montarApi(app, client) {
         res.json({ success: true });
     }));
 
-    // Embed en Components V2: mismo formato que el comando /embed de Discord
-    app.post('/embed', ...protegido, seguro(async (req, res) => {
-        const canal = canalTexto(req.guild, req.body.channelId);
-        if (!canal) return fail(res, 404, 'Ese canal no existe en este servidor.');
-
-        const e = normalizarEmbed(req.body.embed);
-        if (e.error) return fail(res, 400, e.error);
-        const b = normalizarBotones(req.body.buttons);
-        if (b.error) return fail(res, 400, b.error);
+    // Arma el mensaje (Components V2 + botones de enlace). Devuelve { error } o { payload }
+    function armarEmbed(body) {
+        const e = normalizarEmbed(body.embed);
+        if (e.error) return { error: e.error };
+        const b = normalizarBotones(body.buttons);
+        if (b.error) return { error: b.error };
 
         const { container, totalTexto } = construirContainerV2(e.datos);
         if (totalTexto > MAX_TEXTO) {
-            return fail(res, 400, `El texto total supera el límite de ${MAX_TEXTO} caracteres (tiene ${totalTexto}).`);
+            return { error: `El texto total supera el límite de ${MAX_TEXTO} caracteres (tiene ${totalTexto}).` };
         }
 
         const components = [container];
@@ -205,11 +206,90 @@ function montarApi(app, client) {
                 b.botones.map(x => new ButtonBuilder().setLabel(x.label).setStyle(ButtonStyle.Link).setURL(x.url))
             ));
         }
+        return { payload: { components, flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } } };
+    }
 
-        try {
-            await canal.send({ components, flags: MessageFlags.IsComponentsV2, allowedMentions: { parse: [] } });
-        } catch (err) { return falloDiscord(res, err, '/embed'); }
+    // Embed en Components V2: mismo formato que el comando /embed de Discord
+    app.post('/embed', ...protegido, seguro(async (req, res) => {
+        const canal = canalTexto(req.guild, req.body.channelId);
+        if (!canal) return fail(res, 404, 'Ese canal no existe en este servidor.');
+
+        const m = armarEmbed(req.body);
+        if (m.error) return fail(res, 400, m.error);
+
+        try { await canal.send(m.payload); } catch (err) { return falloDiscord(res, err, '/embed'); }
         res.json({ success: true });
+    }));
+
+    // ---------- Solo creadores del bot ----------
+    const esCreador = (id) => CREADORES_IDS.includes(id);
+    const soloCreadores = (req, res, next) =>
+        esCreador(req.userId) ? next() : fail(res, 403, 'Solo los creadores del bot pueden usar esto.');
+
+    // La página lo consulta para saber si muestra la sección "Anuncios" (el permiso real se vuelve a comprobar en cada ruta)
+    app.get('/me', requireAuth, (req, res) => {
+        res.set('Cache-Control', 'no-store');
+        res.json({ creator: esCreador(req.userId) });
+    });
+
+    // Servidores que configuraron su canal de anuncios con /setup anuncios
+    function destinosAnuncios() {
+        const cfg = obtenerConfig();
+        const destinos = [];
+        for (const guild of client.guilds.cache.values()) {
+            const entrada = cfg[guild.id];
+            const canalId = entrada && typeof entrada === 'object' ? entrada.anunciosCanal : null;
+            if (canalId) destinos.push({ guild, canalId });
+        }
+        return destinos;
+    }
+
+    app.get('/announce/stats', requireAuth, soloCreadores, (req, res) => {
+        res.set('Cache-Control', 'no-store');
+        res.json({ configurados: destinosAnuncios().length, total: client.guilds.cache.size });
+    });
+
+    const pausa = (ms) => new Promise(r => setTimeout(r, ms));
+    let anunciando = false;
+
+    // body: { embed, buttons, test?: { guildId, channelId } }
+    //   con "test": solo se envía a ese canal (para probar cómo se ve)
+    //   sin "test": se envía al canal de anuncios de cada servidor que lo configuró
+    app.post('/announce', requireAuth, soloCreadores, seguro(async (req, res) => {
+        const m = armarEmbed(req.body);
+        if (m.error) return fail(res, 400, m.error);
+
+        if (req.body.test) {
+            const guild = client.guilds.cache.get(String(req.body.test.guildId || ''));
+            const canal = guild && canalTexto(guild, req.body.test.channelId);
+            if (!canal) return fail(res, 404, 'Ese canal no existe.');
+            try { await canal.send(m.payload); } catch (err) { return falloDiscord(res, err, '/announce (prueba)'); }
+            return res.json({ success: true, enviados: 1, fallidos: [] });
+        }
+
+        if (anunciando) return fail(res, 409, 'Ya hay un anuncio enviándose. Espera a que termine.');
+        const destinos = destinosAnuncios();
+        if (!destinos.length) return fail(res, 400, 'Ningún servidor ha configurado su canal de anuncios (/setup anuncios).');
+
+        anunciando = true;
+        let enviados = 0;
+        const fallidos = [];
+        try {
+            for (const { guild, canalId } of destinos) {
+                const canal = canalTexto(guild, canalId);
+                if (!canal) { fallidos.push({ servidor: guild.name, motivo: 'el canal configurado ya no existe' }); continue; }
+                const permisos = canal.permissionsFor(guild.members.me);
+                if (!permisos || !permisos.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
+                    fallidos.push({ servidor: guild.name, motivo: 'CPU no puede escribir en ese canal' }); continue;
+                }
+                try { await canal.send(m.payload); enviados++; }
+                catch (err) { fallidos.push({ servidor: guild.name, motivo: String(err?.message || 'error').slice(0, 100) }); }
+                await pausa(600); // para no chocar con los límites de Discord
+            }
+        } finally { anunciando = false; }
+
+        console.log(`📣 Anuncio enviado por ${req.userId}: ${enviados} ok, ${fallidos.length} fallidos`);
+        res.json({ success: true, enviados, fallidos, total: destinos.length });
     }));
 
     // ---------- Tickets (equivalen a /setup tickets, /setup-panel-tickets y /setup-rol-soporte) ----------
